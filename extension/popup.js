@@ -135,7 +135,7 @@
   savePairingBtn.addEventListener("click", function () {
     var code = (pairingInput.value || "").trim();
     if (!code) return;
-    chrome.storage.local.set(TOKEN_KEY, code, function () {
+    chrome.storage.local.set({ [TOKEN_KEY]: code }, function () {
       loadEvents(code);
     });
   });
