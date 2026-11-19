@@ -30,6 +30,8 @@ contextBridge.exposeInMainWorld("sideshow", {
   clearLongClick: () => ipcRenderer.invoke("sideshow:clear-longclick"),
   getAppearance: () => ipcRenderer.invoke("sideshow:get-appearance"),
   setAppearance: (value) => ipcRenderer.invoke("sideshow:set-appearance", value),
+  getTheme: () => ipcRenderer.invoke("sideshow:get-theme"),
+  setTheme: (id) => ipcRenderer.invoke("sideshow:set-theme", id),
   getTransparency: () => ipcRenderer.invoke("sideshow:get-transparency"),
   setTransparency: (value) => ipcRenderer.invoke("sideshow:set-transparency", value),
   getBubbleOptions: () => ipcRenderer.invoke("sideshow:get-bubble-options"),

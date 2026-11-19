@@ -67,9 +67,14 @@ test("White is a pickable color swatch, but never an accent", () => {
 });
 
 test("preset themes: Studio, Dark, Light set the existing settings in one tap", () => {
-  assert.ok(rendererJs.includes('{ id: "studio", label: "Studio", appearance: "glass", bgColor: "#a44a24", accent: "#a44a24" }'), "Studio preset missing or wrong");
-  assert.ok(rendererJs.includes('{ id: "dark", label: "Dark", appearance: "shaded", bgColor: "#2b2118", accent: "#a44a24" }'), "Dark preset missing or wrong");
-  assert.ok(rendererJs.includes('{ id: "light", label: "Light", appearance: "glass", bgColor: "#ffffff", accent: "#a44a24" }'), "Light preset missing or wrong");
+  /* The preset table lives in the shared theme-icons.js (main,
+     renderer, and tests read the same one); the renderer imports it
+     as THEME_PRESETS. */
+  const themeIconsJs = fs.readFileSync(path.join(__dirname, "..", "theme-icons.js"), "utf8");
+  assert.ok(themeIconsJs.includes('{ id: "studio", label: "Studio", appearance: "glass", bgColor: "#a44a24", accent: "#a44a24", icon: null }'), "Studio preset missing or wrong");
+  assert.ok(themeIconsJs.includes('{ id: "dark", label: "Dark", appearance: "shaded", bgColor: "#2b2118", accent: "#a44a24", icon: null }'), "Dark preset missing or wrong");
+  assert.ok(themeIconsJs.includes('{ id: "light", label: "Light", appearance: "glass", bgColor: "#ffffff", accent: "#a44a24", icon: null }'), "Light preset missing or wrong");
+  assert.ok(rendererJs.includes('import { THEMES as THEME_PRESETS } from "../theme-icons.js"'), "renderer must import the shared preset table");
   assert.ok(settingsHtml.includes('id="presetBtns"'), "preset buttons missing from the Appearance tab");
   assert.ok(rendererJs.includes("buildPresetButtons();"), "preset buttons must be built at startup");
   const apply = rendererJs.slice(rendererJs.indexOf("async function applyPreset"), rendererJs.indexOf("/* ---------- bubble appearance ---------- */"));

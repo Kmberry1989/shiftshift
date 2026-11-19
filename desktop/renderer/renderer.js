@@ -14,6 +14,7 @@ import { eventTitle, eventWhen, eventMatches, fieldValueForKey, MONTHS, fmtDateS
 import { calendarEventToRecord, mergeEvents, monthGrid, groupEventsByDate, weekDates, shiftDateStr } from "./calendar.js";
 import { nextUpcomingEvent, formatCountdown, isAllDay } from "./nextup.js";
 import { classifyDragTarget, isDragMovement, shouldEngageDrag } from "./drag.js";
+import { THEMES as THEME_PRESETS } from "../theme-icons.js";
 import {
   FIELD_KEYS, FIELD_LABELS, FONTS, FONT_LABELS, FONT_CYCLE,
   WEIGHTS, WEIGHT_LABELS, WEIGHT_CYCLE,
@@ -403,12 +404,11 @@ function buildAccentSwatches() {
    Colors come only from the existing swatch palette. Text ink is
    left to auto (null) so it is computed from the preset background
    and always reads — even if an explicit text color was picked
-   before, the preset clears it. */
-const THEME_PRESETS = [
-  { id: "studio", label: "Studio", appearance: "glass", bgColor: "#a44a24", accent: "#a44a24" },
-  { id: "dark", label: "Dark", appearance: "shaded", bgColor: "#2b2118", accent: "#a44a24" },
-  { id: "light", label: "Light", appearance: "glass", bgColor: "#ffffff", accent: "#a44a24" },
-];
+   before, the preset clears it. The eight neon themes also swap the
+   tray icon to their Shift² color (Studio, Dark, Light keep the
+   static orange icon); changing the accent by hand afterwards does
+   not change the theme or the icon. The list is the shared table in
+   ../theme-icons.js — main, renderer, and tests read the same one. */
 function buildPresetButtons() {
   const wrap = $("presetBtns");
   if (!wrap || wrap.childElementCount) return; /* built once */
@@ -427,6 +427,7 @@ async function applyPreset(p) {
   try { await window.sideshow.setAppearance(p.appearance); } catch (e) { /* stays local */ }
   accentSettingValue = p.accent;
   try { await window.sideshow.setAccent(p.accent); } catch (e) { /* stays local */ }
+  try { await window.sideshow.setTheme(p.id); } catch (e) { /* icon stays as-is */ }
   bubbleOptions.bgColor = p.bgColor;
   bubbleOptions.textColor = null; /* auto ink from the preset background */
   await saveBubbleOptions();

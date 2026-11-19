@@ -16,6 +16,7 @@ const http = require("http");
 const crypto = require("crypto");
 const position = require("./position.js");
 const bubbleOptions = require("./bubble-options.js");
+const { DEFAULT_THEME, themeById, themeIconFile } = require("./theme-icons.js");
 const { migrateLegacyUserData } = require("./migrate-userdata.js");
 const extensionServer = require("./extension-server.js");
 const { autoUpdater } = require("electron-updater");
@@ -321,6 +322,7 @@ function openSettingsWindow() {
     width: w,
     height: h,
     title: "Shift Shift Settings",
+    icon: themeIconAbsPath(),
     show: false,
     frame: true,
     transparent: false,
@@ -552,8 +554,31 @@ function hidePanel() {
   }, 30);
 }
 
+/* Theme icon: the Shift² variant for the saved theme, or the static
+   app icon (orange) for Studio/Dark/Light and unknown ids. The tray
+   icon is the only runtime-swappable icon — the exe/dock icon is
+   baked at build and stays orange. */
+function themeIconAbsPath() {
+  const f = themeIconFile(settings.theme);
+  return path.join(__dirname, "assets", f ? path.join("icons", f) : "icon.png");
+}
+
+/* Swap the tray icon (and the Settings window icon, when it is open)
+   to the saved theme's icon, re-compositing the badge if one is
+   showing. Called at startup and whenever the theme changes. */
+function applyThemeIcon() {
+  iconB64Cache = null;
+  if (tray) updateBadge(lastBadgeCount);
+  if (settingsWindow && !settingsWindow.isDestroyed()) {
+    try {
+      const img = nativeImage.createFromPath(themeIconAbsPath());
+      if (!img.isEmpty()) settingsWindow.setIcon(img);
+    } catch (e) { /* window icon failed; tray still swapped */ }
+  }
+}
+
 function createTray() {
-  const iconPath = path.join(__dirname, "assets", "icon.png");
+  const iconPath = themeIconAbsPath();
   let icon = nativeImage.createFromPath(iconPath);
   if (icon.isEmpty()) icon = nativeImage.createEmpty();
   tray = new Tray(icon);
@@ -736,10 +761,11 @@ function showReminderNotification(ev, lead, startMs) {
    Windows taskbar badge where the platform supports it. Cleared at 0. */
 
 let iconB64Cache = null;
+let lastBadgeCount = 0;
 function iconBase64() {
   if (iconB64Cache) return iconB64Cache;
   try {
-    iconB64Cache = fs.readFileSync(path.join(__dirname, "assets", "icon.png")).toString("base64");
+    iconB64Cache = fs.readFileSync(themeIconAbsPath()).toString("base64");
   } catch (e) {
     iconB64Cache = "";
   }
@@ -748,11 +774,12 @@ function iconBase64() {
 
 function updateBadge(count) {
   const n = Math.max(0, count || 0);
+  lastBadgeCount = n;
   try { app.setBadgeCount(n); } catch (e) { /* dock/taskbar badge unsupported */ }
   if (!tray) return;
   try {
     if (n === 0) {
-      tray.setImage(nativeImage.createFromPath(path.join(__dirname, "assets", "icon.png")));
+      tray.setImage(nativeImage.createFromPath(themeIconAbsPath()));
       return;
     }
     const label = n > 99 ? "99+" : String(n);
@@ -764,6 +791,7 @@ function updateBadge(count) {
       + '<text x="24" y="11.5" font-size="11" font-family="sans-serif" font-weight="bold" fill="#fff" text-anchor="middle">' + label + "</text></svg>";
     const img = nativeImage.createFromDataURL("data:image/svg+xml;base64," + Buffer.from(svg).toString("base64"));
     if (!img.isEmpty()) tray.setImage(img);
+    else tray.setImage(nativeImage.createFromPath(themeIconAbsPath())); /* badge raster failed (headless has no SVG rasterizer) — show the theme icon, not a stale one */
   } catch (e) { /* tray badge failed; dock/taskbar badge still applies */ }
 }
 
@@ -1451,6 +1479,23 @@ ipcMain.handle("sideshow:set-reminder-lead", (_e, value) => {
   return v;
 });
 
+/* Theme: the saved preset theme id (default Studio). Setting one
+   swaps the tray icon live to that theme's Shift² variant; the
+   exe/dock icon is baked at build and stays orange. A manual accent
+   change does not touch the theme, so the icon stays with the theme
+   pick. */
+ipcMain.handle("sideshow:get-theme", () => (themeById(settings.theme) ? settings.theme : DEFAULT_THEME));
+
+ipcMain.handle("sideshow:set-theme", (_e, id) => {
+  const t = themeById(id);
+  if (!t) return themeById(settings.theme) ? settings.theme : DEFAULT_THEME;
+  settings.theme = t.id;
+  saveSettings();
+  applyThemeIcon();
+  broadcastSettingsChange("theme");
+  return settings.theme;
+});
+
 /* Accent color: a hex string (e.g. "#a44a24") or null for the
    platform default (blue on Mac, green on Windows). */
 ipcMain.handle("sideshow:get-accent", () => settings.accent || null);
@@ -1631,6 +1676,7 @@ app.whenReady().then(() => {
   }
   createPanel();
   createTray();
+  applyThemeIcon(); /* saved theme's tray icon, from first launch */
   startExtensionServer();
   setupAutoUpdater();
   /* Launch update check, once, after the app has settled — not on

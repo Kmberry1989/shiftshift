@@ -769,6 +769,9 @@ input[type="color"].color-input::-moz-color-swatch { border: none; border-radius
   100% { background: var(--surface); border-color: var(--line); color: var(--ink); }
 }
 .seg { display: inline-flex; gap: 4px; }
+/* Theme row: 11 presets now, so the buttons wrap instead of
+   running off the settings window. */
+#presetBtns { flex-wrap: wrap; }
 #transparencySlider { flex: 1; accent-color: var(--accent); }
 
 /* Google Calendar picker: one checkbox row per calendar, with its
