@@ -15,7 +15,7 @@
         and uploads installer + .blockmap + latest.yml (+ zips).
    Dry-run by default: builds the artifacts in dist/ and prints the
    exact `gh release create` command, but uploads nothing.
-   The published installer name uses dots ("Shift Shift.Setup.0.1.13.exe"),
+   The published installer name is fully dotted ("Shift.Shift.Setup.0.1.13.exe"),
    matching the v0.1.12 asset naming ("Sideshow.Setup.0.1.12.exe");
    the makensis output ("Shift Shift Setup 0.1.13.exe", spaces) is
    copied to that name — content identical, so the blockmap stays
@@ -52,9 +52,13 @@ function buildLatestYml({ version, fileName, sha512, size, releaseDate }) {
   );
 }
 
-/* The published installer name: dots, no spaces. */
+/* The published installer name: fully dotted, NO spaces. GitHub
+   renames spaces to dots in release asset names (v0.1.13 shipped
+   latest.yml saying "Shift Shift.Setup..." while GitHub stored
+   "Shift.Shift.Setup...", so the updater's download 404'd) — the
+   local name must already match what GitHub will store. */
 function publishedInstallerName(version) {
-  return "Shift Shift.Setup." + version + ".exe";
+  return "Shift.Shift.Setup." + version + ".exe";
 }
 
 /* Build the standalone .blockmap for the installer, exactly as
