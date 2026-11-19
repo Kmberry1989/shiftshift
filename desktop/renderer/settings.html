@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Sideshow Settings</title>
+    <title>Shift Shift Settings</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body class="settings-window">
@@ -215,6 +215,19 @@
           <div id="calendarPicker" class="calendar-picker" hidden>
             <p id="calendarPickerStatus" class="calendar-status"></p>
             <div id="calendarList" class="calendar-list"></div>
+          </div>
+          <div class="setting">
+            <span class="setting-label">Browser extension</span>
+            <button id="extensionBtn" type="button" class="btn plain setting-btn" data-tip="Browser extension">Show pairing code</button>
+          </div>
+          <div class="setting" id="extensionCodeRow" hidden>
+            <span class="setting-label">Pairing code</span>
+            <span id="extensionCodeValue" class="setting-value"></span>
+            <button id="extensionCopyBtn" type="button" class="btn plain setting-btn" data-tip="Copy pairing code">Copy</button>
+          </div>
+          <div class="setting">
+            <span class="setting-label">Updates</span>
+            <button id="checkUpdatesBtn" type="button" class="btn plain setting-btn" data-tip="Check for updates">Check for updates</button>
           </div>
           <div class="setting">
             <span class="setting-label">Help</span>

@@ -1,5 +1,5 @@
 "use strict";
-/* Sideshow panel — the bubble. One floating outline bubble tree:
+/* Shift Shift panel — the bubble. One floating outline bubble tree:
    Event Bank root -> event bubbles -> value bubbles (click to copy).
    Reads the saved Main Eventer events from Firestore (read-only).
    Settings live in a separate window (settings.html), opened with
@@ -1705,6 +1705,26 @@ function syncEventsToMain() {
     }));
     window.sideshow.eventsUpdated(list);
   } catch (e) { /* badge/reminders skipped; panel still works */ }
+  try {
+    /* The browser-extension server gets the same merged list, full
+       records, so the extension fills forms from exactly what the
+       bubble shows. Hidden events are left out, same as above. */
+    const full = events.filter((ev) => !hiddenIds.has(ev._id)).map((ev) => ({
+      id: ev._id || null,
+      title: ev.title || "",
+      date: ev.date || "",
+      startTime: ev.startTime || "",
+      endTime: ev.endTime || "",
+      price: ev.price || "",
+      ages: ev.ages || "",
+      host: ev.host || "",
+      location: ev.location || "",
+      description: ev.description || "",
+      link: ev.link || "",
+      source: ev.source || "",
+    }));
+    window.sideshow.eventsFull(full);
+  } catch (e) { /* extension list skipped; panel still works */ }
 }
 
 /* Open one event by id (from a reminder notification click): expand
@@ -2335,6 +2355,56 @@ document.addEventListener("DOMContentLoaded", () => {
   });
   const helpBtn = $("helpBtn");
   if (helpBtn) helpBtn.addEventListener("click", () => window.sideshow.openHelp());
+
+  /* Browser extension pairing code — per launch, shown on tap so it
+     is not sitting on screen, copied with the Copy button. The code
+     is what the extension pastes once to reach the loopback server. */
+  const extensionBtn = $("extensionBtn");
+  if (extensionBtn) extensionBtn.addEventListener("click", async () => {
+    const row = $("extensionCodeRow");
+    const val = $("extensionCodeValue");
+    if (!row || !val) return;
+    if (!row.hidden) {
+      row.hidden = true;
+      extensionBtn.textContent = "Show pairing code";
+      return;
+    }
+    try {
+      const res = await window.sideshow.getExtensionToken();
+      val.textContent = (res && res.code) ? res.code : "Extension server not running.";
+    } catch (e) {
+      val.textContent = "Extension server not running.";
+    }
+    row.hidden = false;
+    extensionBtn.textContent = "Hide pairing code";
+  });
+  const extensionCopyBtn = $("extensionCopyBtn");
+  if (extensionCopyBtn) extensionCopyBtn.addEventListener("click", async () => {
+    const val = $("extensionCodeValue");
+    if (val && val.textContent) {
+      try { await window.sideshow.copy(val.textContent); } catch (e) { /* stays local */ }
+      flashSaved(extensionCopyBtn);
+    }
+  });
+
+  /* In-place updates — manual check. The result goes in the status
+     line: latest, available (then it downloads on its own), or a
+     plain failure note. The app also checks once, 30 s after launch. */
+  const checkUpdatesBtn = $("checkUpdatesBtn");
+  if (checkUpdatesBtn) checkUpdatesBtn.addEventListener("click", async () => {
+    setStatus("Checking for updates…");
+    try {
+      const res = await window.sideshow.checkForUpdates();
+      if (!res || !res.ok) {
+        setStatus(res && res.error === "not-packaged" ? "Updates are checked in the installed app, not in development." : "Couldn't check for updates.");
+        return;
+      }
+      if (res.available) setStatus("Update " + res.version + " available — downloading. It installs when you quit.");
+      else setStatus("You're on the latest version (" + (res.current || "") + ").");
+    } catch (e) {
+      setStatus("Couldn't check for updates.");
+    }
+  });
 
   /* Position — tap to cycle where the bubble opens. "Remember spot"
      opens where the bubble was last dragged to (drag it in the bubble

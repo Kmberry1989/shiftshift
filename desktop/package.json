@@ -1,7 +1,7 @@
 {
   "build": {
     "afterPack": "scripts/after-pack.js",
-    "appId": "com.firedarts.sideshow",
+    "appId": "com.firedarts.shiftshift",
     "directories": {
       "output": "dist"
     },
@@ -25,25 +25,31 @@
       "target": "dmg"
     },
     "npmRebuild": false,
+    "publish": {
+      "owner": "Kmberry1989",
+      "provider": "github",
+      "repo": "sideshow"
+    },
     "nsis": {
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "differentialPackage": false,
+      "differentialPackage": true,
       "oneClick": false,
-      "shortcutName": "Sideshow"
+      "shortcutName": "Shift Shift"
     },
-    "productName": "Sideshow",
+    "productName": "Shift Shift",
     "win": {
       "icon": "assets/icon.ico",
       "target": "nsis"
     }
   },
   "dependencies": {
+    "electron-updater": "^6.8.11",
     "firebase": "^10.12.2",
     "uiohook-napi": "^1.5.5"
   },
-  "description": "Sideshow \u2014 floating toggle overlay that recalls saved Main Eventer details anywhere on the system",
+  "description": "Shift Shift — floating toggle overlay that recalls saved Main Eventer details anywhere on the system",
   "devDependencies": {
     "@electron/packager": "^18.3.0",
     "electron": "^35.0.0",
@@ -52,7 +58,7 @@
   },
   "license": "MIT",
   "main": "main.js",
-  "name": "sideshow-desktop",
+  "name": "shift-shift-desktop",
   "scripts": {
     "build": "esbuild renderer/renderer.js --bundle --outfile=renderer/bundle.js --format=iife --platform=browser",
     "dist:mac": "npm run build && electron-builder --mac dmg",
@@ -61,7 +67,7 @@
     "pack": "npm run build && node scripts/pack.js win32 darwin",
     "pack:linux": "npm run build && node scripts/pack.js linux",
     "start": "npm run build && electron .",
-    "test": "node --test test/fields.test.js test/summon.test.js test/calendar.test.js test/position.test.js test/bubble-options.test.js test/packaging.test.js test/settings-window.test.js test/calendar-view.test.js test/v019.test.js test/help.test.js test/drag.test.js test/v010.test.js test/touch-summon.test.js test/week-view.test.js test/copy-all.test.js test/v011.test.js test/trim.test.js test/v012.test.js"
+    "test": "node --test test/fields.test.js test/summon.test.js test/calendar.test.js test/position.test.js test/bubble-options.test.js test/packaging.test.js test/settings-window.test.js test/calendar-view.test.js test/v019.test.js test/help.test.js test/drag.test.js test/v010.test.js test/touch-summon.test.js test/week-view.test.js test/copy-all.test.js test/v011.test.js test/trim.test.js test/v012.test.js test/v013.test.js test/extension-server.test.js test/extension-fill.test.js"
   },
-  "version": "0.1.12"
+  "version": "0.1.13"
 }

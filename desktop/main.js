@@ -1,9 +1,13 @@
 "use strict";
-/* Sideshow — desktop main process.
+/* Shift Shift — desktop main process.
    Tray / menu-bar app. No window on launch. A global hotkey toggles a
    small always-on-top panel that shows the saved Main Eventer events.
    Sign-in is Google OAuth in the system browser with a localhost
-   redirect (the desktop-app flow). No secrets are printed or logged. */
+   redirect (the desktop-app flow). No secrets are printed or logged.
+   (Renamed from Sideshow in v0.1.13. The IPC channels still say
+   "sideshow:" and the settings/token files still say "sideshow-":
+   both are internal only, and renaming them would drop every
+   existing user's settings and sign-in for no user-visible gain.) */
 
 const { app, BrowserWindow, Tray, Menu, globalShortcut, ipcMain, shell, clipboard, safeStorage, nativeImage, Notification, screen } = require("electron");
 const path = require("path");
@@ -12,6 +16,9 @@ const http = require("http");
 const crypto = require("crypto");
 const position = require("./position.js");
 const bubbleOptions = require("./bubble-options.js");
+const { migrateLegacyUserData } = require("./migrate-userdata.js");
+const extensionServer = require("./extension-server.js");
+const { autoUpdater } = require("electron-updater");
 
 const DEFAULT_HOTKEY = "CommandOrControl+Shift+E";
 const OAUTH_PORT = 53682;
@@ -19,6 +26,55 @@ const OAUTH_PORT = 53682;
 const HELP_URL = "https://kmberry1989.github.io/sideshow/";
 const TOKEN_FILE = "sideshow-token.json";
 const SETTINGS_FILE = "sideshow-settings.json";
+
+/* ---------- browser-extension local server ----------
+   Loopback-only HTTP on 127.0.0.1:53683, serving the merged event
+   list to the companion browser extension (see extension-server.js).
+   The pairing token is random per launch and shown in Settings →
+   General; the extension pastes it once and sends it as a header.
+   The event list comes from the renderer (it owns the merge/dedup);
+   until the first push arrives, the server falls back to the events
+   cache file in userData, marked cached. */
+let pairingToken = null;
+let extensionServerHandle = null;
+let extensionEvents = [];
+let extensionEventsUpdatedAt = 0;
+
+function extensionEventsPayload() {
+  if (extensionEvents.length) {
+    return { events: extensionEvents, cached: false, updatedAt: extensionEventsUpdatedAt };
+  }
+  try {
+    const raw = fs.readFileSync(eventsCachePath(), "utf8");
+    const parsed = JSON.parse(raw);
+    if (parsed && Array.isArray(parsed.events)) {
+      return { events: parsed.events.slice(0, 200), cached: true, updatedAt: typeof parsed.savedAt === "number" ? parsed.savedAt : 0 };
+    }
+  } catch (e) { /* no cache yet */ }
+  return { events: [], cached: true, updatedAt: 0 };
+}
+
+async function startExtensionServer() {
+  pairingToken = extensionServer.generatePairingToken();
+  try {
+    extensionServerHandle = await extensionServer.createExtensionServer({
+      token: pairingToken,
+      getEvents: extensionEventsPayload,
+      getStatus: () => ({ version: app.getVersion(), events: extensionEventsPayload().events.length }),
+    });
+  } catch (e) {
+    /* Port taken (another copy running?): the bubble still works,
+       the extension just cannot connect. */
+    extensionServerHandle = null;
+  }
+}
+
+function stopExtensionServer() {
+  if (extensionServerHandle && extensionServerHandle.server) {
+    try { extensionServerHandle.server.close(); } catch (e) { /* already closed */ }
+    extensionServerHandle = null;
+  }
+}
 
 let tray = null;
 let panel = null;
@@ -264,7 +320,7 @@ function openSettingsWindow() {
   settingsWindow = new BrowserWindow({
     width: w,
     height: h,
-    title: "Sideshow Settings",
+    title: "Shift Shift Settings",
     show: false,
     frame: true,
     transparent: false,
@@ -501,10 +557,11 @@ function createTray() {
   let icon = nativeImage.createFromPath(iconPath);
   if (icon.isEmpty()) icon = nativeImage.createEmpty();
   tray = new Tray(icon);
-  tray.setToolTip("Sideshow");
+  tray.setToolTip("Shift Shift");
   tray.setContextMenu(Menu.buildFromTemplate([
-    { label: "Show Sideshow", click: togglePanel },
+    { label: "Show Shift Shift", click: togglePanel },
     { label: "Sign in", click: () => { togglePanel(); startSignIn(); } },
+    { label: "Check for updates", click: () => { checkForUpdates(); } },
     { label: "Help", click: () => { shell.openExternal(HELP_URL); } },
     { type: "separator" },
     { label: "Quit", click: () => app.quit() },
@@ -725,6 +782,64 @@ function upcomingCount(events) {
   return n;
 }
 
+/* ---------- in-place updates (electron-updater) ----------
+   The app checks its GitHub releases (Kmberry1989/sideshow, see the
+   "publish" block in package.json) for a newer version and installs
+   it in place — no uninstall, no clean install. Settings, sign-in,
+   reminders, and the cached events survive because they live in
+   userData, outside the install directory (and the v0.1.13 rename
+   migration keeps them across the rename too). Differential
+   updates: the NSIS installer carries an embedded blockmap, so the
+   updater downloads only the changed blocks — the full installer
+   downloads only when there is no cached copy of the current one
+   (first auto-update) or the differential fails. Only runs in the
+   packaged app; `npm start` skips it (isUpdaterActive is false
+   unpackaged). */
+function showUpdateNotification(title, body, onClick) {
+  try {
+    if (!Notification.isSupported()) return;
+    const note = new Notification({ title, body });
+    if (onClick) note.on("click", onClick);
+    note.show();
+  } catch (e) { /* notification failed; the update still proceeds */ }
+}
+
+function setupAutoUpdater() {
+  if (!app.isPackaged) return;
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+  autoUpdater.on("update-available", (info) => {
+    showUpdateNotification(
+      "Shift Shift update available",
+      "Version " + (info && info.version ? info.version : "") + " is downloading — it installs when you quit."
+    );
+  });
+  autoUpdater.on("update-downloaded", (info) => {
+    showUpdateNotification(
+      "Shift Shift update ready",
+      "Version " + (info && info.version ? info.version : "") + " is ready. Click here to restart and install it.",
+      () => { try { autoUpdater.quitAndInstall(); } catch (e) { /* install on next quit */ } }
+    );
+  });
+  autoUpdater.on("error", () => { /* update check failed; the app still works */ });
+}
+
+async function checkForUpdates() {
+  if (!app.isPackaged) return { ok: false, error: "not-packaged" };
+  try {
+    const result = await autoUpdater.checkForUpdates();
+    if (!result) return { ok: false, error: "check-failed" };
+    return {
+      ok: true,
+      available: !!result.isUpdateAvailable,
+      version: (result.updateInfo && result.updateInfo.version) || "",
+      current: app.getVersion(),
+    };
+  } catch (e) {
+    return { ok: false, error: "check-failed" };
+  }
+}
+
 /* ---------- Google OAuth (system browser + localhost redirect) ---------- */
 
 function base64url(buf) {
@@ -766,7 +881,7 @@ async function startSignIn() {
       const savedState = oauthState;
       const savedVerifier = oauthVerifier;
       res.writeHead(200, { "Content-Type": "text/html" });
-      res.end("<html><body style=\"font-family:sans-serif;padding:40px\"><h2>Signed in</h2><p>Return to Sideshow.</p></body></html>");
+      res.end("<html><body style=\"font-family:sans-serif;padding:40px\"><h2>Signed in</h2><p>Return to Shift Shift.</p></body></html>");
       stopOAuthServer();
       if (error || !code || state !== savedState) {
         sendToAllRenderers("sideshow:auth-error");
@@ -1426,6 +1541,50 @@ ipcMain.handle("sideshow:events-updated", (_e, list) => {
   return true;
 });
 
+/* The full merged event list, for the browser-extension server.
+   The renderer owns the merge/dedup, so main just keeps the latest
+   push in memory and serves it on 127.0.0.1:53683. Hidden events
+   are already filtered out by the renderer. */
+ipcMain.handle("sideshow:events-full", (_e, list) => {
+  if (Array.isArray(list)) {
+    extensionEvents = list.slice(0, 200).map((ev) => ({
+      id: (ev && ev.id) || "",
+      title: (ev && ev.title) || "",
+      date: (ev && ev.date) || "",
+      startTime: (ev && ev.startTime) || "",
+      endTime: (ev && ev.endTime) || "",
+      price: (ev && ev.price) || "",
+      ages: (ev && ev.ages) || "",
+      host: (ev && ev.host) || "",
+      location: (ev && ev.location) || "",
+      description: (ev && ev.description) || "",
+      link: (ev && ev.link) || "",
+      source: (ev && ev.source) || "",
+    }));
+    extensionEventsUpdatedAt = Date.now();
+  }
+  return true;
+});
+
+/* Browser-extension pairing: the per-launch code, and whether the
+   loopback server is up. The code is shown in Settings → General;
+   the extension pastes it once and stores it. */
+ipcMain.handle("sideshow:get-extension-token", () => ({
+  code: pairingToken ? extensionServer.formatPairingToken(pairingToken) : "",
+  running: !!extensionServerHandle,
+}));
+
+ipcMain.handle("sideshow:get-extension-status", () => ({
+  running: !!extensionServerHandle,
+  port: extensionServer.EXTENSION_PORT,
+  events: extensionEventsPayload().events.length,
+}));
+
+/* In-place updates: manual check from the tray menu or Settings →
+   General. The launch check runs once, 30 s after startup. */
+ipcMain.handle("sideshow:check-for-updates", async () => checkForUpdates());
+ipcMain.handle("sideshow:get-version", () => app.getVersion());
+
 /* Cached events: the last successfully fetched merged event list
    (Main Eventer + Google Calendar), saved by the renderer whenever
    live data arrives. When a fetch fails or there is no network, the
@@ -1458,6 +1617,13 @@ ipcMain.handle("sideshow:set-cached-events", (_e, value) => {
 /* ---------- app lifecycle ---------- */
 
 app.whenReady().then(() => {
+  /* Rename migration (v0.1.13): the package name changed, so
+     userData moved. Copy the settings / token / reminders / cache
+     from the old Sideshow directory before anything reads them —
+     without this the rename would silently sign the user out. */
+  try {
+    migrateLegacyUserData(app.getPath("userData"), app.getPath("appData"));
+  } catch (e) { /* migration is best-effort; the app still starts */ }
   config = loadConfig();
   settings = loadSettings();
   if (settings.hotkey && isValidAccelerator(settings.hotkey)) {
@@ -1465,6 +1631,11 @@ app.whenReady().then(() => {
   }
   createPanel();
   createTray();
+  startExtensionServer();
+  setupAutoUpdater();
+  /* Launch update check, once, after the app has settled — not on
+     the first paint, so a slow network never delays the bubble. */
+  setTimeout(() => { checkForUpdates(); }, 30000);
   globalShortcut.register(currentHotkey, requestToggle);
   applyGesture();
   applyDoubleTap();
@@ -1478,6 +1649,7 @@ app.on("will-quit", () => {
   if (doubletap) doubletap.stop();
   if (longclick) longclick.stop();
   stopOAuthServer();
+  stopExtensionServer();
 });
 
 app.on("window-all-closed", (e) => { e.preventDefault(); });

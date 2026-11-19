@@ -1,4 +1,4 @@
-/* Sideshow shared field formatting. Same record shape as Main Eventer:
+/* Shift Shift shared field formatting. Same record shape as Main Eventer:
    title, date (YYYY-MM-DD), startTime/endTime (HH:MM), price, ages,
    host, location, description, link. No fake data — empty fields are
    omitted, never invented. */

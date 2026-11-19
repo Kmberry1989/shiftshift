@@ -1,4 +1,4 @@
-/* Sideshow Google Calendar mapping — pure functions, unit-tested.
+/* Shift Shift Google Calendar mapping — pure functions, unit-tested.
    Maps a Google Calendar event onto the Main Eventer record shape
    (title, date YYYY-MM-DD, startTime/endTime HH:MM, price, ages,
    host, location, description, link), then merges calendar events

@@ -50,7 +50,7 @@ test("settings form lives in settings.html, not in the bubble", () => {
   }
   assert.ok(!settingsHtml.includes('id="bubbleView"'), "settings.html must not contain the bubble");
   assert.ok(!settingsHtml.includes('id="settingsBackBtn"'), "no back button in a standalone window");
-  assert.ok(settingsHtml.includes("<title>Sideshow Settings</title>"), "settings window title");
+  assert.ok(settingsHtml.includes("<title>Shift Shift Settings</title>"), "settings window title");
   assert.ok(settingsHtml.includes('src="bundle.js"'), "settings.html loads the shared bundle");
   assert.ok(settingsHtml.includes('href="styles.css"'), "settings.html loads the shared styles");
 });
@@ -67,7 +67,7 @@ test("main opens settings as a separate framed window with preview + restore", (
   assert.ok(mainJs.includes("function openSettingsWindow()"), "openSettingsWindow missing");
   assert.ok(mainJs.includes("function closeSettingsWindow()"), "closeSettingsWindow missing");
   assert.ok(mainJs.includes('"renderer", "settings.html"'), "settings window must load settings.html");
-  assert.ok(mainJs.includes('title: "Sideshow Settings"'), "settings window title");
+  assert.ok(mainJs.includes('title: "Shift Shift Settings"'), "settings window title");
   assert.ok(mainJs.includes("frame: true"), "settings window must be framed");
   assert.ok(mainJs.includes("transparent: false"), "settings window must be opaque");
   assert.ok(mainJs.includes("alwaysOnTop: false"), "settings window must not be always-on-top");

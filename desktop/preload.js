@@ -1,5 +1,5 @@
 "use strict";
-/* Sideshow preload — exposes a minimal API to the panel. The OAuth
+/* Shift Shift preload — exposes a minimal API to the panel. The OAuth
    client secret never reaches the renderer; it stays in the main process. */
 const { contextBridge, ipcRenderer } = require("electron");
 
@@ -70,6 +70,11 @@ contextBridge.exposeInMainWorld("sideshow", {
   listCalendars: () => ipcRenderer.invoke("sideshow:list-calendars"),
   getCalendarEvents: (calendarIds) => ipcRenderer.invoke("sideshow:get-calendar-events", calendarIds),
   eventsUpdated: (list) => ipcRenderer.invoke("sideshow:events-updated", list),
+  eventsFull: (list) => ipcRenderer.invoke("sideshow:events-full", list),
+  getExtensionToken: () => ipcRenderer.invoke("sideshow:get-extension-token"),
+  getExtensionStatus: () => ipcRenderer.invoke("sideshow:get-extension-status"),
+  checkForUpdates: () => ipcRenderer.invoke("sideshow:check-for-updates"),
+  getVersion: () => ipcRenderer.invoke("sideshow:get-version"),
   onOpenEvent: (fn) => ipcRenderer.on("sideshow:open-event", (_e, id) => fn(id)),
   onSettingsChanged: (fn) => ipcRenderer.on("sideshow:settings-changed", (_e, key) => fn(key)),
   onSettingsWindow: (fn) => ipcRenderer.on("sideshow:settings-window", (_e, open) => fn(open)),

@@ -1,4 +1,4 @@
-# Sideshow
+# Shift Shift
 
 Floating toggle overlay that recalls saved Main Eventer details anywhere on the system. Hidden until a hotkey calls it up; click a saved field to copy it, paste it wherever you are working. Reads the same saved-event bank Main Eventer uses (Firestore `mainEvent_events`) — no separate data, no re-typing.
 

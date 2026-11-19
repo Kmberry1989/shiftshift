@@ -32,7 +32,7 @@ test("win32/linux layout: keeps en-US.pak, removes the rest", () => {
 test("darwin layout: keeps en.lproj, removes the rest", () => {
   const root = tmp();
   const resources = path.join(
-    root, "Sideshow.app", "Contents", "Frameworks",
+    root, "Shift Shift.app", "Contents", "Frameworks",
     "Electron Framework.framework", "Versions", "A", "Resources",
   );
   fs.mkdirSync(resources, { recursive: true });
