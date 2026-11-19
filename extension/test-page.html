@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Shift Shift Fill — test page</title>
+<style>
+  body { font-family: sans-serif; max-width: 560px; margin: 40px auto; padding: 0 16px; }
+  label { display: block; margin: 14px 0 4px; font-weight: 600; }
+  input, textarea { width: 100%; padding: 8px; font: inherit; }
+  #log { margin-top: 24px; padding: 12px; background: #f4f4f4; white-space: pre-wrap; font-family: monospace; }
+</style>
+</head>
+<body>
+<h1>Create event (test form — mimics the Facebook composer labels)</h1>
+<form id="composer" action="javascript:void(0)">
+  <label for="ev-name">Event name</label>
+  <input id="ev-name" type="text" placeholder="Event name" />
+
+  <label for="ev-start-date">Start date</label>
+  <input id="ev-start-date" type="text" placeholder="Start date" aria-label="Start date" />
+
+  <label for="ev-start-time">Start time</label>
+  <input id="ev-start-time" type="text" placeholder="Start time" aria-label="Start time" />
+
+  <label for="ev-end-date">End date</label>
+  <input id="ev-end-date" type="text" placeholder="End date" aria-label="End date" />
+
+  <label for="ev-end-time">End time</label>
+  <input id="ev-end-time" type="text" placeholder="End time" aria-label="End time" />
+
+  <label for="ev-location">Location</label>
+  <input id="ev-location" type="text" placeholder="Add location" aria-label="Location" />
+
+  <label for="ev-desc">Description</label>
+  <textarea id="ev-desc" placeholder="Add a description" aria-label="Description"></textarea>
+
+  <label for="ev-price">Price</label>
+  <input id="ev-price" type="text" placeholder="Price" aria-label="Price" />
+
+  <label for="ev-link">Ticket link</label>
+  <input id="ev-link" type="text" placeholder="Ticket link" aria-label="Ticket link" />
+</form>
+<div id="log">Fill result appears here.</div>
+<script src="fill.js"></script>
+<script>
+  /* Manual check: paste an event into the console and run
+     ShiftShiftFill.fillEventForm(document, event). Example:
+     ShiftShiftFill.fillEventForm(document, { title: "Christmas Ornaments", date: "2026-12-01", startTime: "17:30", endTime: "19:30", price: "$39", location: "111 W Sycamore St, Kokomo, IN", description: "Paint a Christmas ornament.", link: "https://www.firedartsstudio.com/upcoming-workshops" });
+     The #log shows what was filled. */
+  window.addEventListener("shiftshift-filled", function (e) {
+    document.getElementById("log").textContent = JSON.stringify(e.detail, null, 2);
+  });
+</script>
+</body>
+</html>

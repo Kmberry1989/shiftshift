@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Shift Shift Fill</title>
+<style>
+  * { box-sizing: border-box; }
+  body { width: 340px; margin: 0; padding: 14px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: #2b2118; background: #fbf6ee; font-size: 14px; line-height: 1.45; }
+  h1 { margin: 0 0 4px; font-size: 16px; }
+  .sub { margin: 0 0 12px; color: #6f5d4c; font-size: 13px; }
+  .status { margin: 0 0 12px; padding: 10px 12px; border-radius: 8px; background: #fffdf8; border: 1px solid #e3d5c3; color: #6f5d4c; }
+  .status.err { border-color: #c0392b; color: #96281b; }
+  .event { display: flex; align-items: center; gap: 10px; padding: 10px 12px; margin: 0 0 8px; background: #fffdf8; border: 1px solid #e3d5c3; border-radius: 8px; }
+  .event .info { flex: 1; min-width: 0; }
+  .event .name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .event .when { color: #6f5d4c; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  button { cursor: pointer; font: inherit; color: #fffdf8; background: #a44a24; border: none; border-radius: 8px; padding: 8px 12px; }
+  button.plain { color: #2b2118; background: transparent; border: 1px solid #e3d5c3; }
+  button:disabled { opacity: 0.5; cursor: default; }
+  input[type="text"] { width: 100%; font: inherit; padding: 8px 10px; border: 1px solid #e3d5c3; border-radius: 8px; background: #fffdf8; color: #2b2118; }
+  label { display: block; margin: 0 0 6px; font-weight: 600; }
+  .row { display: flex; gap: 8px; margin-top: 10px; }
+  .row button { flex: 1; }
+  .hint { margin: 10px 0 0; color: #6f5d4c; font-size: 12px; }
+  .result { margin-top: 10px; color: #2b6118; }
+</style>
+</head>
+<body>
+  <h1>Shift Shift Fill</h1>
+  <p class="sub">Pick an event to fill this page's form with it.</p>
+  <div id="status" class="status">Connecting to Shift Shift…</div>
+  <div id="pairing" hidden>
+    <label for="pairingCode">Pairing code</label>
+    <input id="pairingCode" type="text" autocomplete="off" placeholder="abcd-ef01-2345-6789" />
+    <div class="row">
+      <button id="savePairingBtn" type="button">Save code</button>
+    </div>
+    <p class="hint">Find it in Shift Shift: Settings → General → Browser extension → Show pairing code.</p>
+  </div>
+  <div id="events"></div>
+  <div id="result" class="result" hidden></div>
+  <script src="popup.js"></script>
+</body>
+</html>
