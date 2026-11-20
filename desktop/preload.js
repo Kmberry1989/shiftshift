@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld("sideshow", {
   hide: () => ipcRenderer.invoke("sideshow:hide"),
   openSettings: () => ipcRenderer.invoke("sideshow:open-settings"),
   openHelp: () => ipcRenderer.invoke("sideshow:open-help"),
+  openExternal: (url) => ipcRenderer.invoke("sideshow:open-external", url),
   closeSettings: () => ipcRenderer.invoke("sideshow:close-settings"),
   configStatus: () => ipcRenderer.invoke("sideshow:config-status"),
   firebaseConfig: () => ipcRenderer.invoke("sideshow:firebase-config"),

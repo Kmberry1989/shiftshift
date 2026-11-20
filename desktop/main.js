@@ -1069,6 +1069,20 @@ ipcMain.handle("sideshow:hide", () => { hidePanel(); return true; });
 ipcMain.handle("sideshow:open-settings", () => { openSettingsWindow(); return true; });
 ipcMain.handle("sideshow:open-help", () => { shell.openExternal(HELP_URL); return true; });
 
+/* Create-event shortcut: open a create-event page in the default
+   browser. Strict allowlist — only the two pages the shortcut
+   offers (Facebook create-event, the studio's Wix Events new-event
+   page). Anything else is refused, so the renderer can never be
+   used to open an arbitrary URL. */
+const CREATE_EVENT_URLS = new Set([
+  "https://www.facebook.com/events/create",
+  "https://manage.wix.com/dashboard/cf57070b-8114-45e4-95b1-7242bf48c467/events/new",
+]);
+ipcMain.handle("sideshow:open-external", (_e, url) => {
+  if (typeof url !== "string" || !CREATE_EVENT_URLS.has(url)) return false;
+  shell.openExternal(url); return true;
+});
+
 ipcMain.handle("sideshow:close-settings", () => { closeSettingsWindow(); return true; });
 
 /* Transparent window: the renderer makes transparent areas

@@ -42,12 +42,23 @@ test("drag from anywhere: only the root's click toggles the focused event", () =
   assert.ok(rendererJs.includes("e.stopPropagation()"), "the suppressor must stop the post-drag click");
 });
 
-test("drag from anywhere: the whole visible panel is interactive, not click-through", () => {
-  const sel = rendererJs.slice(rendererJs.indexOf("const CLICKABLE_SELECTOR"), rendererJs.indexOf(";", rendererJs.indexOf("const CLICKABLE_SELECTOR")));
-  assert.ok(sel.includes(".bubble-tree"), "tree gaps must not pass clicks through to the desktop");
-  assert.ok(sel.includes(".calendar-view"), "calendar cells must not pass clicks through to the desktop");
-  assert.ok(sel.includes(".bubble-header"), "header gaps must not pass clicks through to the desktop");
+test("click-through: only leaf interactive elements keep clicks, transparent gaps pass through", () => {
+  /* v0.1.15 reverses the v0.1.10 rule: Kyle reported clicks on the
+     visibly transparent gaps between bubbles were eaten by the
+     window. The hit test now lives in click-through.js and lists
+     leaf elements only — the big containers (.bubble-tree,
+     .bubble-header, .calendar-view) are gone, so a gap reads as
+     empty and the click reaches the app behind. Calendar day cells
+     stay interactive: they are visible content, not transparency. */
+  const clickThroughJs = read(path.join(RENDERER, "click-through.js"));
+  const sel = clickThroughJs.slice(clickThroughJs.indexOf("const CLICKABLE_SELECTOR"), clickThroughJs.indexOf(";", clickThroughJs.indexOf("const CLICKABLE_SELECTOR")));
+  assert.ok(!sel.includes(".bubble-tree"), "tree gaps must pass clicks through to the desktop");
+  assert.ok(!sel.includes(".bubble-header"), "header gaps must pass clicks through to the desktop");
+  assert.ok(!sel.includes(".calendar-view"), "calendar-view padding must pass clicks through to the desktop");
+  assert.ok(sel.includes(".cal-cell"), "calendar day cells must stay interactive");
+  assert.ok(sel.includes(".bubble"), "bubbles must stay interactive");
   assert.ok(sel.includes("input"), "the search input must stay in the clickable set");
+  assert.ok(rendererJs.includes('from "./click-through.js"'), "the renderer must use the click-through module");
 });
 
 test("calendar backdrop: the grid uses the existing bubble fill, no new setting", () => {

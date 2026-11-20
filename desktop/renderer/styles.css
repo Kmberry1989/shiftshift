@@ -60,6 +60,7 @@ body {
   gap: 8px;
   padding: 10px 12px 4px;
   flex: none;
+  position: relative;
   /* The header never scrolls, so a finger drag from here always
      moves the window (no scroll takeover, no pointercancel). */
   touch-action: none;
@@ -85,7 +86,43 @@ body {
 .bubble-header button svg { display: block; }
 #settingsBtn svg { width: 21px; height: 21px; }
 #calendarViewBtn svg { width: 18px; height: 18px; }
+#createEventBtn svg { width: 19px; height: 19px; }
 #closeBtn svg { width: 24px; height: 24px; }
+/* Create event menu: a small popup under the header button, two
+   choices (Facebook, Wix). Same fill/border/ink as the header
+   controls, so it follows the theme with them. */
+.create-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 12px;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 148px;
+  padding: 4px;
+  background: var(--bubble-fill);
+  border: 1px solid var(--bubble-border, var(--line));
+  border-radius: 12px;
+}
+.create-menu[hidden] { display: none; }
+.create-menu button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--icon-color-user, var(--bubble-ink-user, var(--bubble-ink-auto, var(--ink))));
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+.create-menu button:hover { background: var(--bubble-border, var(--line)); }
+.create-menu button svg { width: 16px; height: 16px; flex: none; }
 /* Search: magnifying glass + text input. The input is a real text
    field — it stays editable and selectable; the app's no-select /
    no-magnifier rules do not apply to it. */
@@ -499,16 +536,23 @@ body {
 /* While a drag is active, no hover scale anywhere on the panel: the
    view must move, never grow, while the pointer crosses elements.
    The renderer adds is-dragging on pointerdown and removes it when
-   the drag ends. */
+   the drag ends. The guard covers every bubble — .bubble is the
+   class they all share (root, Next up, event, value, empty,
+   sign-in), not just event/value — and it freezes animations too:
+   a copy-pop already running when the drag starts would otherwise
+   keep growing its bubble to 1.07, and the inflate-on-open
+   animation would scale the whole view if the user grabs the panel
+   in its first 250 ms. The pulse lives on the branch, so it keeps
+   its own rule below. */
 #bubbleView.is-dragging .bubble-header button:hover,
-#bubbleView.is-dragging .bubble-tree .event-bubble:hover,
-#bubbleView.is-dragging .bubble-tree .value-bubble:hover,
-#bubbleView.is-dragging .bubble-tree .event-bubble,
-#bubbleView.is-dragging .bubble-tree .value-bubble { transform: none !important; }
+#bubbleView.is-dragging .bubble-tree .bubble { transform: none !important; animation: none !important; }
 /* The pulse lives on the branch, not the bubble, so the guard above
    never reached it: the whole branch kept breathing (1 → 1.01)
    while the panel was dragged. A drag freezes the pulse too. */
 #bubbleView.is-dragging #bubbleTree.pulse .pulse-item { animation: none !important; }
+/* Inflate runs when the panel opens; a drag that starts inside its
+   first 250 ms must not ride the view from .7 to full size. */
+#bubbleView.is-dragging.inflate { animation: none !important; }
 
 /* ---------- Per-field text styling ---------- */
 /* Applied by the renderer to a value bubble or the event title,

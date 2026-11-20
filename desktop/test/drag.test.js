@@ -127,3 +127,82 @@ test("drag regression: the pulse freezes while dragging, and click-through never
   const fnHead = rendererJs.slice(fnStart, rendererJs.indexOf("const el = document.elementFromPoint", fnStart));
   assert.ok(fnHead.includes("if (dragState) return;"), "updateIgnoreMouse must return early while dragState is set");
 });
+
+test("drag regression v0.1.15: pointer capture keeps the stream alive on Windows", () => {
+  const rendererJs = fs.readFileSync(path.join(__dirname, "..", "renderer", "renderer.js"), "utf8");
+  /* Without capture the OS re-hit-tests after every setPosition and
+     the stream breaks — a move reporting buttons=0 then ends the
+     drag early while the button is still held, dropping
+     is-dragging and letting the hover scale back in. Capture
+     retargets the stream to the drag origin even off-window. */
+  assert.ok(rendererJs.includes("e.target.setPointerCapture(e.pointerId)"), "the drag start must capture the pointer");
+  assert.ok(rendererJs.includes('document.addEventListener("lostpointercapture"'), "a lost capture must end the drag cleanly");
+  const lostStart = rendererJs.indexOf('document.addEventListener("lostpointercapture"');
+  const lostBody = rendererJs.slice(lostStart, rendererJs.indexOf("});", lostStart));
+  assert.ok(lostBody.includes("endPanelDrag(false)"), "a lost capture must end the drag without the root toggle");
+});
+
+test("drag regression v0.1.15: renders and height reports freeze mid-drag, then flush once", () => {
+  const rendererJs = fs.readFileSync(path.join(__dirname, "..", "renderer", "renderer.js"), "utf8");
+  /* A re-render mid-drag rebuilds the tree under the pointer
+     (destroying the element being dragged from) and reports a new
+     content height, resizing the window while it moves. Both are
+     deferred, not dropped: the drag end flushes them once. */
+  const renderStart = rendererJs.indexOf("function render() {");
+  const renderHead = rendererJs.slice(renderStart, renderStart + 600);
+  assert.ok(renderHead.includes("if (dragState) { renderDeferred = true; return; }"), "render() must defer while a drag is active");
+  const reportStart = rendererJs.indexOf("function reportContentHeight() {");
+  const reportHead = rendererJs.slice(reportStart, reportStart + 600);
+  assert.ok(reportHead.includes("if (dragState) { heightDeferred = true; return; }"), "reportContentHeight() must defer while a drag is active");
+  const endStart = rendererJs.indexOf("function endPanelDrag(allowToggle) {");
+  const endBody = rendererJs.slice(endStart, rendererJs.indexOf("resetIdleTimer();", endStart));
+  assert.ok(endBody.includes("if (renderDeferred) { renderDeferred = false; render(); }"), "the drag end must flush a deferred render");
+  assert.ok(endBody.includes("else if (heightDeferred) { heightDeferred = false; reportContentHeight(); }"), "the drag end must flush a deferred height report");
+  /* A timer armed before the drag must not hide the panel under it. */
+  const downStart = rendererJs.indexOf('document.addEventListener("pointerdown"');
+  const downBody = rendererJs.slice(downStart, rendererJs.indexOf('if (info.fromRoot) e.preventDefault();', downStart));
+  assert.ok(downBody.includes("clearIdleTimer();"), "the drag start must clear the pending idle timer");
+});
+
+test("drag regression v0.1.15: the is-dragging guard covers every bubble and every animation", () => {
+  const stylesCss = fs.readFileSync(path.join(__dirname, "..", "renderer", "styles.css"), "utf8");
+  /* The old guard named event/value bubbles only. Every bubble
+     shares .bubble (root, Next up, event, value, empty, sign-in),
+     and a copy-pop already running when the drag starts would keep
+     growing its bubble to 1.07 through the old guard. */
+  assert.ok(
+    stylesCss.includes("#bubbleView.is-dragging .bubble-tree .bubble { transform: none !important; animation: none !important; }"),
+    "every bubble must freeze transform and animation under is-dragging"
+  );
+  assert.ok(
+    stylesCss.includes("#bubbleView.is-dragging.inflate { animation: none !important; }"),
+    "the inflate-on-open animation must freeze if a drag starts inside its first 250 ms"
+  );
+});
+
+test("drag regression v0.1.15: a buttons=0 move must not end a captured drag", () => {
+  const rendererJs = fs.readFileSync(path.join(__dirname, "..", "renderer", "renderer.js"), "utf8");
+  /* The old branch ended the drag on any move reporting buttons=0 —
+     the tripwire that killed the drag early on Windows while the
+     button was still held. With pointer capture, pointerup always
+     arrives, so the branch must only fire when capture failed. */
+  assert.ok(rendererJs.includes("captured: false"), "dragState must track whether capture was established");
+  assert.ok(rendererJs.includes("dragState.captured = true"), "a successful capture must be recorded");
+  assert.ok(rendererJs.includes("if (!dragState.captured && !(e.buttons & 1)) { endPanelDrag(true); return; }"), "the buttons=0 early-end must only fire without capture");
+});
+
+test("drag regression v0.1.15: the post-drag click suppressor must expire on its own", () => {
+  const rendererJs = fs.readFileSync(path.join(__dirname, "..", "renderer", "renderer.js"), "utf8");
+  /* endPanelDrag arms suppressClickAfterDrag so the drag-end click
+     cannot toggle the root bubble or copy a value. A window-moving
+     drag does not reliably deliver that click at all, so without a
+     deadline the flag would stay armed and eat the user's next real
+     click. The next pointerdown clears it too (a real click is
+     always preceded by one; the drag-end click is not). */
+  const endStart = rendererJs.indexOf("function endPanelDrag(allowToggle) {");
+  const endBody = rendererJs.slice(endStart, rendererJs.indexOf("resetIdleTimer();", endStart));
+  assert.ok(endBody.includes("setTimeout(() => { suppressClickAfterDrag = false; }, 500);"), "the suppressor must expire 500 ms after the drag ends");
+  const downStart = rendererJs.indexOf('document.addEventListener("pointerdown"');
+  const downHead = rendererJs.slice(downStart, downStart + 300);
+  assert.ok(downHead.includes("suppressClickAfterDrag = false;"), "a new gesture's pointerdown must clear the suppressor");
+});

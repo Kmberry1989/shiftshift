@@ -22,8 +22,8 @@ const helpHtml = read(path.join(REPO, "docs", "index.html"));
 
 const HELP_URL = "https://kmberry1989.github.io/sideshow/";
 
-test("help page exists and covers Shift Shift v0.1.14", () => {
-  assert.ok(helpHtml.includes("Shift Shift v0.1.14"), "help page must name the version it documents");
+test("help page exists and covers Shift Shift v0.1.15", () => {
+  assert.ok(helpHtml.includes("Shift Shift v0.1.15"), "help page must name the version it documents");
   for (const section of ["Summoning", "Calendar view", "Settings window", "Google Calendar", "Signing in", "Installing"]) {
     assert.ok(helpHtml.includes(section), "help page must cover: " + section);
   }
@@ -72,6 +72,20 @@ test("help page documents the v0.1.12 features", () => {
   }
   assert.ok(helpHtml.includes("Escape clears the search"), "help page must cover Escape clearing the search");
   assert.ok(helpHtml.includes("off by default"), "help page must say reminders are off by default");
+});
+
+test("help page documents the v0.1.15 features", () => {
+  for (const feature of [
+    "Click-through", /* clicks pass through transparent regions; off mid-drag */
+    "End date and time", /* extension auto-reveals optional form sections */
+    "In person or Virtual", /* extension picks in-person/virtual to match the event */
+    "Time zone", /* timezone fields get the event's timezone, never a time */
+    "0.1.14 was the last full download", /* in-place patch updates from 0.1.15 */
+    "create-event button", /* Create event shortcut: Facebook + Wix */
+  ]) {
+    assert.ok(helpHtml.includes(feature), "help page must document: " + feature);
+  }
+  assert.ok(helpHtml.includes("Facebook and Wix"), "help page must cover the Create event choices");
 });
 
 test("tray menu has a Help item opening the live help URL", () => {
