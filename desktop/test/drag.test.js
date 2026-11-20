@@ -5,6 +5,8 @@
    event. These tests run against the pure module, no Electron. */
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
 const { classifyDragTarget, isDragMovement, shouldEngageDrag, DRAG_EXCLUDE_SELECTOR, DRAG_THRESHOLD_PX } = require("../renderer/drag.js");
 
 /* Minimal stand-in for a DOM element: closest() walks up through
@@ -99,4 +101,29 @@ test("touch drags from a scroll area only engage when horizontal", () => {
   /* Touch drags from non-scrollable areas move in any direction. */
   assert.equal(shouldEngageDrag("touch", false, 0, 40), true);
   assert.equal(shouldEngageDrag("touch", false, 40, 0), true);
+});
+
+test("drag regression: the pulse freezes while dragging, and click-through never flips mid-drag", () => {
+  const stylesCss = fs.readFileSync(path.join(__dirname, "..", "renderer", "styles.css"), "utf8");
+  const rendererJs = fs.readFileSync(path.join(__dirname, "..", "renderer", "renderer.js"), "utf8");
+  /* The pulse lives on the branch, not the bubble, so the
+     is-dragging hover guard never reached it: the whole branch kept
+     breathing (1 → 1.01) while the panel was dragged. A drag must
+     freeze it too. */
+  assert.ok(
+    stylesCss.includes("#bubbleView.is-dragging #bubbleTree.pulse .pulse-item { animation: none !important; }"),
+    "the branch pulse must freeze under is-dragging"
+  );
+  /* updateIgnoreMouse must bail while a drag is active. The
+     mousemove listener re-evaluates click-through on every move,
+     and as the panel slides under the pointer the pointer can land
+     on a gap between bubbles — flipping the window click-through
+     mid-gesture breaks the pointer stream on Windows (a
+     pointercancel, or a move reporting buttons=0), which ends the
+     drag early, drops is-dragging, and lets the hover scale back
+     in while the user is still dragging. */
+  const fnStart = rendererJs.indexOf("function updateIgnoreMouse");
+  assert.ok(fnStart >= 0, "updateIgnoreMouse must exist");
+  const fnHead = rendererJs.slice(fnStart, rendererJs.indexOf("const el = document.elementFromPoint", fnStart));
+  assert.ok(fnHead.includes("if (dragState) return;"), "updateIgnoreMouse must return early while dragState is set");
 });

@@ -74,14 +74,17 @@ test("preset themes: Studio, Dark, Light set the existing settings in one tap", 
   assert.ok(themeIconsJs.includes('{ id: "studio", label: "Studio", appearance: "glass", bgColor: "#a44a24", accent: "#a44a24", icon: null }'), "Studio preset missing or wrong");
   assert.ok(themeIconsJs.includes('{ id: "dark", label: "Dark", appearance: "shaded", bgColor: "#2b2118", accent: "#a44a24", icon: null }'), "Dark preset missing or wrong");
   assert.ok(themeIconsJs.includes('{ id: "light", label: "Light", appearance: "glass", bgColor: "#ffffff", accent: "#a44a24", icon: null }'), "Light preset missing or wrong");
-  assert.ok(rendererJs.includes('import { THEMES as THEME_PRESETS } from "../theme-icons.js"'), "renderer must import the shared preset table");
+  assert.ok(rendererJs.includes('import { THEMES as THEME_PRESETS, themeTextColors } from "../theme-icons.js"'), "renderer must import the shared preset table");
   assert.ok(settingsHtml.includes('id="presetBtns"'), "preset buttons missing from the Appearance tab");
   assert.ok(rendererJs.includes("buildPresetButtons();"), "preset buttons must be built at startup");
   const apply = rendererJs.slice(rendererJs.indexOf("async function applyPreset"), rendererJs.indexOf("/* ---------- bubble appearance ---------- */"));
   assert.ok(apply.includes("setAppearance(p.appearance)"), "a preset must set the look through the existing setting");
   assert.ok(apply.includes("setAccent(p.accent)"), "a preset must set the accent through the existing setting");
   assert.ok(apply.includes("saveBubbleOptions()"), "a preset must persist the background through the existing setting");
-  assert.ok(apply.includes("bubbleOptions.textColor = null"), "a preset must leave text ink to auto so it reads on its background");
+  /* v0.1.14: a preset sets the theme's contrast-checked ink
+     explicitly (not auto-null) and owns the transparency. */
+  assert.ok(apply.includes("bubbleOptions.textColor = colors ? colors.ink : null"), "a preset must set the theme's contrast-checked ink");
+  assert.ok(apply.includes("transparencySetting = 50;"), "a preset must own the transparency setting");
   /* Every preset color comes from the existing palette — nothing invented. */
   for (const hex of ["#a44a24", "#2b2118", "#ffffff"]) {
     assert.ok(rendererJs.includes(hex), hex + " must already be in the swatch palette");

@@ -6,16 +6,22 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-const { matchFieldKind, valueFor, formatDate, formatTime, setFieldValue, fillEventForm } = require("../../extension/fill.js");
+const { matchFieldKind, valueFor, formatDate, formatTime, setFieldValue, fillEventForm, isVirtualEvent, setInPersonVirtual, revealOptionalFields } = require("../../extension/fill.js");
 
 class FakeEl {
-  constructor({ tag = "INPUT", type = "text", attrs = {}, labelText = "" }) {
+  constructor({ tag = "INPUT", type = "text", attrs = {}, labelText = "", text = "", parent = null, onClick = null, options = null }) {
     this.tagName = tag;
     this.type = type;
     this._value = "";
     this.disabled = false;
     this._attrs = attrs;
     this.labels = labelText ? [{ textContent: labelText }] : [];
+    this.textContent = text;
+    this.parentNode = parent;
+    this.parent = parent;
+    this._onClick = onClick;
+    this.clicked = false;
+    this.options = options;
     this.events = [];
     /* Real DOM inputs coerce the assigned value to a string. */
     Object.defineProperty(this, "value", {
@@ -26,13 +32,36 @@ class FakeEl {
   }
   getAttribute(name) { return this._attrs[name] || null; }
   closest() { return null; }
+  click() {
+    this.clicked = true;
+    if (this._onClick) this._onClick();
+  }
   dispatchEvent(e) { this.events.push(e.type); return true; }
+}
+
+function matchesPart(el, part) {
+  part = part.trim();
+  if (!part) return false;
+  var m = part.match(/^([a-z]*)\[role='([^']+)'\]$/i);
+  if (m) {
+    var tagOk = !m[1] || el.tagName.toLowerCase() === m[1].toLowerCase();
+    var role = el.getAttribute ? el.getAttribute("role") : null;
+    return tagOk && role === m[2];
+  }
+  if (part.indexOf("[") >= 0) return false;
+  return el.tagName.toLowerCase() === part.toLowerCase();
 }
 
 class FakeRoot {
   constructor(fields) { this._fields = fields; }
-  querySelectorAll() { return this._fields; }
-  querySelector() { return null; }
+  querySelectorAll(selector) {
+    var parts = String(selector).split(",");
+    return this._fields.filter((el) => parts.some((p) => matchesPart(el, p)));
+  }
+  querySelector(selector) {
+    var found = this.querySelectorAll(selector);
+    return found.length ? found[0] : null;
+  }
 }
 
 function el(opts) { return new FakeEl(opts); }
@@ -154,4 +183,129 @@ test("fillEventForm: an event with no price leaves the price field alone", () =>
   assert.equal(priceField.value, "", "price field untouched when the event has no price");
   assert.ok(kinds(res).indexOf("price") < 0, "price not filled");
   assert.ok(res.missing.indexOf("price") < 0, "price not reported missing — the event has none");
+});
+
+/* ---------- Timezone (Nov 19 mis-fill) ---------- */
+
+test("matchFieldKind: a 'Time zone' field is timezone, never a time", () => {
+  assert.equal(matchFieldKind(null, el({ attrs: { "aria-label": "Time zone" } })), "timezone");
+  assert.equal(matchFieldKind(null, el({ attrs: { "aria-label": "Start time zone" } })), "timezone");
+  assert.equal(matchFieldKind(null, el({ attrs: { placeholder: "Timezone" } })), "timezone");
+  assert.equal(matchFieldKind(null, el({ attrs: { "aria-label": "Event time zone" } })), "timezone");
+  /* The generic time rule can no longer steal it. */
+  assert.equal(matchFieldKind(null, el({ attrs: { placeholder: "Time" } })), "time");
+  assert.equal(matchFieldKind(null, el({ attrs: { "aria-label": "Start time" } })), "startTime");
+  assert.equal(matchFieldKind(null, el({ attrs: { "aria-label": "End time" } })), "endTime");
+  assert.equal(valueFor("timezone", EVENT, "text"), "EST", "no tz on the event — the studio fallback");
+  assert.equal(valueFor("timezone", { ...EVENT, timezone: "America/New_York" }, "text"), "America/New_York");
+  assert.equal(valueFor("timezone", { ...EVENT, tz: "EDT" }, "text"), "EDT");
+});
+
+test("fillEventForm: Facebook-like rows with a Time zone field per row", () => {
+  const startTz = el({ attrs: { "aria-label": "Time zone" } });
+  const endTz = el({ attrs: { "aria-label": "Time zone" } });
+  const startTime = el({ attrs: { "aria-label": "Start time" } });
+  const endTime = el({ attrs: { "aria-label": "End time" } });
+  const fields = [
+    el({ attrs: { "aria-label": "Start date" } }),
+    startTime,
+    startTz,
+    el({ attrs: { "aria-label": "End date" } }),
+    endTime,
+    endTz,
+  ];
+  const res = fillEventForm(new FakeRoot(fields), EVENT);
+  assert.equal(startTime.value, "5:30 PM", "start time stays a time");
+  assert.equal(endTime.value, "7:30 PM", "end time stays a time");
+  assert.equal(startTz.value, "EST", "start row timezone gets the tz, not a time");
+  assert.equal(endTz.value, "EST", "end row timezone gets the tz too");
+  assert.ok(!fields.some((f) => f.value === "8:10 PM"), "no time value ever lands in a timezone field");
+  assert.ok(kinds(res).indexOf("timezone") >= 0);
+  assert.ok(res.missing.indexOf("timezone") < 0, "fallback tz is not event data, so it is never reported missing");
+});
+
+test("fillEventForm: an explicit event tz is reported missing when the form has no timezone field", () => {
+  const res = fillEventForm(new FakeRoot([el({ attrs: { placeholder: "Event name" } })]), { ...EVENT, timezone: "EST" });
+  assert.ok(res.missing.indexOf("timezone") >= 0, "explicit tz with nowhere to go is missing");
+});
+
+/* ---------- Revealers + in-person/virtual ---------- */
+
+test("isVirtualEvent: a URL or online wording is virtual, a street address is not", () => {
+  assert.equal(isVirtualEvent({ ...EVENT, location: "https://zoom.us/j/123" }), true);
+  assert.equal(isVirtualEvent({ ...EVENT, location: "Online" }), true);
+  assert.equal(isVirtualEvent({ ...EVENT, location: "Virtual event" }), true);
+  assert.equal(isVirtualEvent({ ...EVENT, virtual: true }), true);
+  assert.equal(isVirtualEvent({ ...EVENT, format: "online" }), true);
+  assert.equal(isVirtualEvent(EVENT), false);
+  assert.equal(isVirtualEvent({ ...EVENT, location: "111 W Sycamore St" }), false);
+  assert.equal(isVirtualEvent({ ...EVENT, location: "" }), false);
+});
+
+test("revealOptionalFields: clicks 'End date and time' only when the event has an end time, then the fill reaches the revealed fields", () => {
+  const endDate = el({ attrs: { "aria-label": "End date" } });
+  const endTime = el({ attrs: { "aria-label": "End time" } });
+  const root = new FakeRoot([]);
+  const expander = el({ tag: "BUTTON", text: "End date and time", onClick: () => { root._fields.push(endDate, endTime); } });
+  root._fields = [
+    el({ attrs: { "aria-label": "Start date" } }),
+    el({ attrs: { "aria-label": "Start time" } }),
+    expander,
+  ];
+  const revealed = revealOptionalFields(root, EVENT);
+  assert.deepEqual(revealed.expanders, ["End date and time"]);
+  assert.equal(expander.clicked, true);
+  const res = fillEventForm(root, EVENT);
+  assert.equal(endDate.value, "11/24/2026", "revealed end date fills");
+  assert.equal(endTime.value, "7:30 PM", "revealed end time fills");
+  assert.ok(kinds(res).indexOf("endDate") >= 0 && kinds(res).indexOf("endTime") >= 0);
+
+  const root2 = new FakeRoot([]);
+  const expander2 = el({ tag: "BUTTON", text: "End date and time", onClick: () => { root2._fields.push(el({ attrs: { "aria-label": "End date" } })); } });
+  root2._fields = [expander2];
+  revealOptionalFields(root2, { ...EVENT, endTime: "" });
+  assert.equal(expander2.clicked, false, "no end time — the expander is left alone");
+});
+
+test("setInPersonVirtual: clicks the matching option inside the 'Is it in person or virtual?' group", () => {
+  function group() {
+    const container = el({ tag: "DIV", text: "Is it in person or virtual? In person Virtual" });
+    const inPerson = el({ tag: "BUTTON", text: "In person", parent: container });
+    const virtual = el({ tag: "BUTTON", text: "Virtual", parent: container });
+    const root = new FakeRoot([inPerson, virtual]);
+    return { root, inPerson, virtual };
+  }
+  const g1 = group();
+  const r1 = setInPersonVirtual(g1.root, EVENT);
+  assert.deepEqual(r1, { how: "click", value: "in person" });
+  assert.equal(g1.inPerson.clicked, true);
+  assert.equal(g1.virtual.clicked, false);
+
+  const g2 = group();
+  const r2 = setInPersonVirtual(g2.root, { ...EVENT, location: "https://zoom.us/j/123" });
+  assert.deepEqual(r2, { how: "click", value: "virtual" });
+  assert.equal(g2.virtual.clicked, true);
+  assert.equal(g2.inPerson.clicked, false);
+
+  /* A same-named button OUTSIDE the group is never touched. */
+  const stray = el({ tag: "BUTTON", text: "In person" });
+  assert.equal(setInPersonVirtual(new FakeRoot([stray]), EVENT), null);
+  assert.equal(stray.clicked, false);
+});
+
+test("setInPersonVirtual: a select with both options gets its value set", () => {
+  const container = el({ tag: "DIV", text: "Is it in person or virtual?" });
+  const sel = el({
+    tag: "SELECT",
+    parent: container,
+    options: [
+      { value: "in_person", text: "In person" },
+      { value: "virtual", text: "Virtual" },
+    ],
+  });
+  sel._value = "in_person";
+  const root = new FakeRoot([sel]);
+  const r = setInPersonVirtual(root, { ...EVENT, location: "Online" });
+  assert.deepEqual(r, { how: "select", value: "virtual" });
+  assert.equal(sel.value, "virtual");
 });

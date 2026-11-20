@@ -7,8 +7,10 @@
 ; The electron-builder config (package.json "build") is the canonical
 ; installer definition for a Windows build; this script is the
 ; Linux-built equivalent so a setup .exe can be produced here.
-; The published release asset is renamed to "Shift Shift.Setup.<version>.exe"
-; (dots, no spaces) at publish time — see scripts/publish-release.js.
+; The published release asset is renamed to "Shift.Shift.Setup.<version>.exe"
+; (fully dotted, no spaces) at publish time — see scripts/publish-release.js.
+; GitHub renames spaces to dots in asset names, so the local name must
+; already match what GitHub will store, or latest.yml points nowhere.
 ; Upgrading from Sideshow: the installer removes the old Sideshow
 ; install (directory + uninstall entry) so only Shift Shift remains.
 ; electron-updater installs later updates in place into the same
@@ -18,7 +20,7 @@
 !include "FileFunc.nsh"
 
 Name "Shift Shift"
-OutFile "dist/Shift Shift Setup 0.1.13.exe"
+OutFile "dist/Shift Shift Setup 0.1.14.exe"
 InstallDir "$LOCALAPPDATA\Programs\Shift Shift"
 InstallDirRegKey HKCU "Software\Shift Shift" "InstallDir"
 RequestExecutionLevel user
@@ -46,11 +48,19 @@ Section "Install"
   DeleteRegKey HKCU "Software\Sideshow"
   SetOutPath "$INSTDIR"
   File /r "dist/win-unpacked\*.*"
+  ; Seed electron-updater's differential cache (stock NSIS behavior):
+  ; the updater diffs the next version against the old installer
+  ; stored as installer.exe in the updater cache dir. Without this
+  ; copy, a manual install leaves nothing to diff against and the
+  ; first patch update is a full download. The uninstaller does not
+  ; touch the cache (stock behavior).
+  CreateDirectory "$LOCALAPPDATA\shift-shift-desktop-updater"
+  CopyFiles /SILENT "$EXEPATH" "$LOCALAPPDATA\shift-shift-desktop-updater\installer.exe"
   WriteRegStr HKCU "Software\Shift Shift" "InstallDir" "$INSTDIR"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Shift Shift" "DisplayName" "Shift Shift"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Shift Shift" "UninstallString" "$INSTDIR\Uninstall.exe"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Shift Shift" "DisplayIcon" "$INSTDIR\Shift Shift.exe"
-  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Shift Shift" "DisplayVersion" "0.1.13"
+  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Shift Shift" "DisplayVersion" "0.1.14"
   WriteUninstaller "$INSTDIR\Uninstall.exe"
   CreateDirectory "$SMPROGRAMS\Shift Shift"
   CreateShortcut "$SMPROGRAMS\Shift Shift\Shift Shift.lnk" "$INSTDIR\Shift Shift.exe" "" "$INSTDIR\Shift Shift.exe" 0

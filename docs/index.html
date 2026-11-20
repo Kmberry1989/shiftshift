@@ -67,7 +67,7 @@
 <header>
   <h1>Shift Shift Help</h1>
   <p class="sub">A floating overlay that recalls your saved event details anywhere on your system. Summon it, find the event, click a value to copy it, paste it wherever you are working.</p>
-  <span class="version">Shift Shift v0.1.13</span>
+  <span class="version">Shift Shift v0.1.14</span>
 </header>
 
 <nav aria-label="Contents">
@@ -190,11 +190,11 @@
 <table>
   <thead><tr><th>Setting</th><th>What it does</th></tr></thead>
   <tbody>
-    <tr><td>Themes</td><td>One-tap presets at the top of Appearance. <strong>Studio</strong> (terracotta glass), <strong>Dark</strong> (dark shaded), and <strong>Light</strong> (white glass), plus eight neon color themes — <strong>White, Amber, Orange, Blue, Green, Purple, Pink, Cyan</strong> — each with a dark glass tinted to its color. Each sets the look, background, and accent together, and returns the text color to automatic ink. Picking a neon theme also changes the tray icon to that color's Shift² icon (Studio, Dark, and Light keep the orange app icon). Changing the accent by hand afterwards does not change the theme or the icon. You can still change any setting after applying one.</td></tr>
+    <tr><td>Themes</td><td>One-tap presets at the top of Appearance. <strong>Studio</strong> (terracotta glass), <strong>Dark</strong> (dark shaded), and <strong>Light</strong> (white glass), plus eight neon color themes — <strong>White, Amber, Orange, Blue, Green, Purple, Pink, Cyan</strong> — each with a dark glass tinted to its color. Each sets the look, background, accent, text color, and transparency together, and picks the text and accent colors so they always read on the background (checked at WCAG AA, 4.5:1) — you never have to fix readability by hand after picking one. Picking a neon theme also changes the tray icon to that color's Shift² icon (Studio, Dark, and Light keep the white app icon). White is the default theme, so the tray matches the dock icon on a fresh install. Changing the accent by hand afterwards does not change the theme or the icon. You can still change any setting after applying one.</td></tr>
     <tr><td>Look</td><td>Glass (Liquid Glass, frosted — default), Shaded (soft tint), or Clear (nearly transparent).</td></tr>
     <tr><td>See-through</td><td>Transparency slider, 0–100. Default 50.</td></tr>
     <tr><td>Scale</td><td>Bubble size, 80–150%. Default 100%.</td></tr>
-    <tr><td>Font</td><td>Mono (default), System, Serif, Rounded, Georgia, Palatino, Verdana, Tahoma, Trebuchet, or Courier. All system fonts — nothing to download.</td></tr>
+    <tr><td>Font</td><td>Mono (default), System, Rounded, Georgia, Palatino, Verdana, Tahoma, Trebuchet, Courier, Arial, Helvetica, Times, Segoe, Futura, Garamond, Franklin, Baskerville, Impact, or Andale. All system fonts — nothing to download.</td></tr>
     <tr><td>Weight</td><td>Regular (400), Medium (500), or Bold (700).</td></tr>
     <tr><td>Border</td><td>Border color — swatches or a custom color.</td></tr>
     <tr><td>Shadow</td><td>On or off, with a strength slider, 0–100. Default on at 40.</td></tr>
@@ -202,7 +202,7 @@
     <tr><td>Corners</td><td>Smooth or Right angle, with a roundness slider, 0–32 px. Default Smooth at 32 px.</td></tr>
     <tr><td>Branches</td><td>How the tree lines up: Left (default), Right, Middle, or Center.</td></tr>
     <tr><td>Gentle pulse</td><td>A soft breathing animation on the bubbles. On by default.</td></tr>
-    <tr><td>Scrollbar</td><td>Slim (6 px, default) or Standard (12 px). <strong>Scrollbar color</strong> is its own setting — pick a color and changing the accent no longer recolors the thumb; unset, the thumb takes the accent color. The track is transparent. The thumb shape is Pill (fully round, default), Rounded, or Square, and applies to the tree, the calendar and week views, and the settings scroll areas.</td></tr>
+    <tr><td>Scrollbar</td><td>Slim (6 px, default) or Standard (12 px). <strong>Scrollbar color</strong> is its own setting — pick a color and changing the accent no longer recolors the thumb; unset, the thumb takes the accent color. The track is transparent. The thumb shape is Pill (fully round, default) or Square, and applies to the tree, the calendar and week views, and the settings scroll areas.</td></tr>
     <tr><td>Icons</td><td>Color for the header icons — gear, magnifier, close. Default is the theme ink; pick a custom color to override it.</td></tr>
     <tr><td>Separate entries</td><td>How events are set apart: Bullets (small dots — default), Lines (a thin rule between entries), or Spacing (more breathing room).</td></tr>
   </tbody>
@@ -228,11 +228,11 @@
 <h2 id="general">General</h2>
 <p><strong>Sign in / Sign out.</strong> See <a href="#sign-in">Signing in</a>.</p>
 <p><strong>Sound.</strong> Soft bubble and pop sounds when the panel opens, closes, and copies. On by default.</p>
-<p><strong>Sound style.</strong> Which set of sounds plays: <strong>Bubbly</strong> (the current sounds, default), <strong>Chime</strong> (higher, longer, bell-like), <strong>Click</strong> (short and dry), or <strong>Pop</strong> (drops in pitch). Changing it plays one short sample of the set's copy sound. The Sound on/off toggle stays the master switch — the style only matters while sound is on.</p>
+<p><strong>Sound style.</strong> Which set of sounds plays: <strong>Bubbly</strong> (the current sounds, default), <strong>Chime</strong> (higher, longer, bell-like), <strong>Click</strong> (short and dry), <strong>Pop</strong> (drops in pitch), <strong>Thud</strong> (low and drum-like), <strong>Sparkle</strong> (very high and short), <strong>Zap</strong> (a sawtooth buzz), or <strong>Pluck</strong> (a flat mid-tone pluck). Changing it plays one short sample of the set's copy sound. The Sound on/off toggle stays the master switch — the style only matters while sound is on.</p>
 <p><strong>Copy all format.</strong> What the Copy all row puts on the clipboard: <strong>Labeled</strong> (default — one labeled line per field) or <strong>Plain</strong> (values only, same order).</p>
 <p><strong>Tooltips.</strong> Short hover tooltips on every interactive element. On by default; turn them off to hide them all.</p>
 <p><strong>Motion.</strong> Full, Reduced, or Off. When you have not chosen, it follows your operating system's reduced-motion preference. Reduced softens the pulse; Off turns the pulse, the open animation, and the hover magnification off.</p>
-<p><strong>Reminders.</strong> Off by default. Turn them on and Shift Shift sends a system notification for each event once, at the lead time you pick under <strong>Remind me</strong>: 5, 15 (default), 30, or 60 minutes before it starts. The notification shows the event name and start time, and plays the current sound style's copy sound when Sound is on. Clicking it opens that event's branch. Only events with a start time get reminders. The badge on the tray icon (and the Mac dock) counts upcoming events. Reminders and the badge work independently — either can be on without the other.</p>
+<p><strong>Reminders.</strong> Off by default. Turn them on and Shift Shift sends a system notification for each event once, at the lead time you pick under <strong>Remind me</strong>: 5, 15 (default), 30, or 60 minutes, 2 hours, 1 day, 2 days, or 1 week before it starts. Day-based leads fire at the same time of day as the event, even across a daylight-saving change. The notification shows the event name and start time, and plays the current sound style's copy sound when Sound is on. Clicking it opens that event's branch. Only events with a start time get reminders. The badge on the tray icon (and the Mac dock) counts upcoming events. Reminders and the badge work independently — either can be on without the other.</p>
 <p><strong>Accent.</strong> One color for the copy confirmation and the interface accents. Default follows the platform (blue on Mac, green on Windows), or pick Terracotta, Clay, Gold, Green, Teal, Blue, or Plum. Terracotta is the studio brand color.</p>
 <p><strong>Google Calendar.</strong> See <a href="#google-calendar">Google Calendar</a>.</p>
 <p><strong>Browser extension.</strong> See <a href="#browser-extension">Browser extension</a>. The pairing code the extension asks for lives here: <strong>Show pairing code</strong> shows it, <strong>Copy</strong> copies it. The code changes every time Shift Shift starts.</p>
@@ -291,7 +291,7 @@
 <p>The sign-in did not complete. Try again, and check the browser window that opened — the sign-in happens there, and closing it early cancels it.</p>
 
 <footer>
-  <p>Shift Shift v0.1.13 — a companion to Main Eventer for Fired Arts Studio. The event bank is Main Eventer's saved events; Google Calendar events are read from your Google account.</p>
+  <p>Shift Shift v0.1.14 — a companion to Main Eventer for Fired Arts Studio. The event bank is Main Eventer's saved events; Google Calendar events are read from your Google account.</p>
 </footer>
 </div>
 </body>

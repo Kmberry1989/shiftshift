@@ -1,5 +1,5 @@
 "use strict";
-/* Shift Shift release publisher (v0.1.13).
+/* Shift Shift release publisher (v0.1.14).
    The Windows installer is built by the custom makensis flow
    (electron-builder --win --dir + installer.nsi), so electron-builder
    never generates the update metadata itself. This script does the
@@ -15,9 +15,9 @@
         and uploads installer + .blockmap + latest.yml (+ zips).
    Dry-run by default: builds the artifacts in dist/ and prints the
    exact `gh release create` command, but uploads nothing.
-   The published installer name is fully dotted ("Shift.Shift.Setup.0.1.13.exe"),
+   The published installer name is fully dotted ("Shift.Shift.Setup.0.1.14.exe"),
    matching the v0.1.12 asset naming ("Sideshow.Setup.0.1.12.exe");
-   the makensis output ("Shift Shift Setup 0.1.13.exe", spaces) is
+   the makensis output ("Shift Shift Setup 0.1.14.exe", spaces) is
    copied to that name — content identical, so the blockmap stays
    valid. Usage (from desktop/):
      node scripts/publish-release.js [--installer <path>] [--publish] [--zips <a.zip,b.zip>] */

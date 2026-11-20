@@ -7,7 +7,10 @@
    .icns — but a missing .icns/.ico would silently ship the default
    Electron icon. The eight theme icons (assets/icons/theme-*.png)
    are the same Shift² tile in each neon color, cropped from Kyle's
-   uploads with transparent rounded corners. */
+   uploads with transparent rounded corners, downscaled to 256x256
+   in v0.1.14 (the tray only shows them at 16–32 px). The static
+   app icon is the white tile at 1024 (v0.1.14); the 1024 masters
+   live at icon-options/theme-masters-1024/. */
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
@@ -74,10 +77,10 @@ test("build config icon paths point at existing files", () => {
   }
 });
 
-test("static app icon is the orange Shift² theme master", () => {
+test("static app icon is the white Shift² master (1024)", () => {
   const icon = fs.readFileSync(path.join(DESKTOP, "assets", "icon.png"));
-  const orange = fs.readFileSync(path.join(DESKTOP, "assets", "icons", "theme-orange.png"));
-  assert.deepEqual(icon, orange, "icon.png must be byte-identical to theme-orange.png");
+  const white = fs.readFileSync(path.join(DESKTOP, "..", "icon-options", "theme-masters-1024", "theme-white.png"));
+  assert.deepEqual(icon, white, "icon.png must be byte-identical to the 1024 white master");
 });
 
 /* Minimal PNG decode (8-bit RGBA only): inflate IDAT and reverse the
@@ -136,17 +139,17 @@ function alphaAt(p, x, y) {
   return p.px[(y * p.width + x) * 4 + 3];
 }
 
-test("all 8 theme icons exist, are 1024x1024 RGBA, corners transparent", () => {
+test("all 8 theme icons exist, are 256x256 RGBA, corners transparent", () => {
   const neon = THEMES.filter((t) => t.icon);
   assert.equal(neon.length, 8, `expected 8 neon themes, got ${neon.length}`);
   for (const t of neon) {
     const buf = fs.readFileSync(path.join(DESKTOP, "assets", "icons", t.icon));
     assert.ok(buf.length > 10000, `${t.icon} suspiciously small`);
     const p = pngPixels(buf);
-    assert.deepEqual({ width: p.width, height: p.height }, { width: 1024, height: 1024 }, `${t.icon} must be 1024x1024`);
-    for (const [x, y] of [[0, 0], [1023, 0], [0, 1023], [1023, 1023]]) {
+    assert.deepEqual({ width: p.width, height: p.height }, { width: 256, height: 256 }, `${t.icon} must be 256x256`);
+    for (const [x, y] of [[0, 0], [255, 0], [0, 255], [255, 255]]) {
       assert.equal(alphaAt(p, x, y), 0, `${t.icon} corner (${x},${y}) must be transparent`);
     }
-    assert.equal(alphaAt(p, 512, 512), 255, `${t.icon} center must be opaque`);
+    assert.equal(alphaAt(p, 128, 128), 255, `${t.icon} center must be opaque`);
   }
 });

@@ -19,7 +19,7 @@ test("theme table has 11 themes with unique ids", () => {
   assert.equal(THEMES.length, 11, `expected 11 themes, got ${THEMES.length}`);
   const ids = THEMES.map((t) => t.id);
   assert.equal(new Set(ids).size, ids.length, "theme ids must be unique");
-  assert.equal(DEFAULT_THEME, "studio");
+  assert.equal(DEFAULT_THEME, "white");
   assert.ok(themeById(DEFAULT_THEME), "default theme must exist");
 });
 

@@ -136,12 +136,15 @@ test("search: Escape clears the search first, a second Escape hides the panel", 
 });
 
 test("reminders: off by default, one configurable lead time, list in one constant", () => {
-  /* One constant — Kyle's pick (Nov 10, 2026): 5, 15, 30, 60. */
-  assert.ok(mainJs.includes("const REMINDER_LEAD_MINUTES = [5, 15, 30, 60];"),
-    "the lead-time list must be one constant: [5, 15, 30, 60]");
+  /* One constant — Kyle's picks: 5, 15, 30, 60 minutes (Nov 10,
+     2026) plus 2 hours, 1 day, 2 days, 1 week (Nov 19, 2026). */
+  assert.ok(mainJs.includes("const REMINDER_LEAD_MINUTES = [5, 15, 30, 60, 120, 1440, 2880, 10080];"),
+    "the lead-time list must be one constant: [5, 15, 30, 60, 120, 1440, 2880, 10080]");
   assert.ok(mainJs.includes("const REMINDER_LEAD_DEFAULT = 15;"), "the default lead must be 15 minutes");
   assert.ok(mainJs.includes("function reminderLeadMinutes()"), "main must normalize the lead time");
   assert.ok(!mainJs.includes("REMINDER_LEADS"), "the fixed 1-day / 1-hour leads must be gone");
+  assert.ok(mainJs.includes('const { reminderFireMs } = require("./reminder-time.js");'), "main must use the reminder fire-time module");
+  assert.ok(mainJs.includes("const fireAt = reminderFireMs(startMs, lead);"), "scheduling must compute the fire time with calendar-day math");
   assert.ok(mainJs.includes("return settings.reminders === true;"), "reminders must default off");
   assert.ok(rendererJs.includes("let remindersOn = false;"), "the renderer must default reminders off");
   assert.ok(mainJs.includes('ipcMain.handle("sideshow:get-reminder-lead"'), "main must handle get-reminder-lead");
@@ -164,19 +167,105 @@ test("reminders: off by default, one configurable lead time, list in one constan
   assert.ok(rendererJs.includes("if (soundOn) playCopySound()"), "the reminder sound must respect Sound on/off");
 });
 
-test("fonts: six more system fonts in the list, no downloads", () => {
+test("reminder lead labels: minutes stay minutes, longer leads read as hours/days/weeks", () => {
+  assert.ok(rendererJs.includes("const REMINDER_LEAD_OPTIONS = [5, 15, 30, 60, 120, 1440, 2880, 10080];"),
+    "the renderer must cycle the full lead list");
+  assert.ok(rendererJs.includes("function reminderLeadLabel(lead)"), "the renderer must label the leads");
+  assert.ok(rendererJs.includes('if (lead === 120) return "2 hours before";'), "2 hours must label as hours");
+  assert.ok(rendererJs.includes('if (lead === 1440) return "1 day before";'), "1440 must label as 1 day");
+  assert.ok(rendererJs.includes('if (lead === 2880) return "2 days before";'), "2880 must label as 2 days");
+  assert.ok(rendererJs.includes('if (lead === 10080) return "1 week before";'), "10080 must label as 1 week");
+  assert.ok(rendererJs.includes("reminderLeadLabel(reminderLead)"), "the lead button must show the friendly label");
+  assert.ok(!rendererJs.includes('reminderLead + " min before"'), "no lead may render as raw minutes");
+});
+
+test("reminderFireMs: minute leads subtract minutes, day leads subtract calendar days", () => {
+  const { reminderFireMs } = require("../reminder-time.js");
+  /* Wed May 20, 2026, 5:30 PM — no DST change nearby. */
+  const start = new Date(2026, 4, 20, 17, 30).getTime();
+  assert.equal(reminderFireMs(start, 15), start - 15 * 60 * 1000);
+  assert.equal(reminderFireMs(start, 60), start - 60 * 60 * 1000);
+  assert.equal(reminderFireMs(start, 120), start - 120 * 60 * 1000);
+  const day = new Date(reminderFireMs(start, 1440));
+  assert.equal(day.getDate(), 19, "1-day lead must fire the day before");
+  assert.equal(day.getHours(), 17, "1-day lead must fire at the same wall-clock time");
+  assert.equal(day.getMinutes(), 30);
+  const twoDays = new Date(reminderFireMs(start, 2880));
+  assert.equal(twoDays.getDate(), 18, "2-day lead must fire two days before");
+  assert.equal(twoDays.getHours(), 17);
+  const week = new Date(reminderFireMs(start, 10080));
+  assert.equal(week.getDate(), 13, "1-week lead must fire seven days before");
+  assert.equal(week.getHours(), 17);
+  assert.equal(reminderFireMs(start, 0), start, "a zero lead fires at the start");
+  assert.equal(reminderFireMs(null, 15), null, "a missing start has no fire time");
+  assert.equal(reminderFireMs(start, -5), null, "a negative lead has no fire time");
+});
+
+test("reminder day leads hold the wall-clock time across DST changes", () => {
+  /* Runs the checks in a child node with TZ=America/New_York so
+     the DST transitions are real. The discriminating case is an
+     event ON the transition day: spring forward, an event Sun Mar 8
+     2026 5:30 PM has its 1-day lead Sat Mar 7 5:30 PM (23 h of
+     epoch); plain minute math would fire 4:30 PM instead. Fall
+     back, an event Sun Nov 1 5:30 PM leads Sat Oct 31 5:30 PM
+     (25 h of epoch); minute math would fire 6:30 PM instead. */
+  const { execFileSync } = require("node:child_process");
+  const script = `
+    const { reminderFireMs } = require("./reminder-time.js");
+    const check = (start, lead, y, m, d, h, mi, what) => {
+      const got = new Date(reminderFireMs(start, lead));
+      if (got.getFullYear() !== y || got.getMonth() !== m || got.getDate() !== d || got.getHours() !== h || got.getMinutes() !== mi) {
+        throw new Error(what + " fired at " + got);
+      }
+    };
+    // Spring forward 2026: DST starts Sun Mar 8, 2:00 AM.
+    const spring = new Date(2026, 2, 8, 17, 30).getTime();
+    check(spring, 1440, 2026, 2, 7, 17, 30, "spring 1-day lead");
+    check(spring, 10080, 2026, 2, 1, 17, 30, "spring 1-week lead");
+    const springEpoch = new Date(spring - 1440 * 60 * 1000);
+    if (springEpoch.getHours() !== 16) throw new Error("test setup: minute math must be an hour off in spring, got " + springEpoch);
+    // Fall back 2026: DST ends Sun Nov 1, 2:00 AM.
+    const fall = new Date(2026, 10, 1, 17, 30).getTime();
+    check(fall, 1440, 2026, 9, 31, 17, 30, "fall 1-day lead");
+    check(fall, 2880, 2026, 9, 30, 17, 30, "fall 2-day lead");
+    const fallEpoch = new Date(fall - 1440 * 60 * 1000);
+    if (fallEpoch.getHours() !== 18) throw new Error("test setup: minute math must be an hour off in fall, got " + fallEpoch);
+    console.log("DST day-lead checks passed");
+  `;
+  const out = execFileSync("node", ["-e", script], {
+    cwd: DESKTOP,
+    env: { ...process.env, TZ: "America/New_York" },
+    encoding: "utf8",
+  });
+  assert.match(out, /DST day-lead checks passed/);
+});
+
+test("fonts: ten more system fonts in the list (19 total), Serif removed, no downloads", () => {
   const bubbleOptions = require("../bubble-options.js");
   for (const font of ["georgia", "palatino", "verdana", "tahoma", "trebuchet", "courier"]) {
     assert.ok(bubbleOptions.FONTS[font], "font list must include " + font);
     assert.ok(bubbleOptions.FONT_LABELS[font], "font labels must include " + font);
     assert.ok(bubbleOptions.FONT_CYCLE.indexOf(font) >= 0, "font cycle must include " + font);
   }
-  assert.equal(Object.keys(bubbleOptions.FONTS).length, 10, "ten fonts total");
+  /* v0.1.14: ten more cross-platform system fonts. */
+  for (const font of ["arial", "helvetica", "times", "segoe", "futura", "garamond", "franklin", "baskerville", "impact", "andale"]) {
+    assert.ok(bubbleOptions.FONTS[font], "font list must include " + font);
+    assert.ok(bubbleOptions.FONT_LABELS[font], "font labels must include " + font);
+    assert.ok(bubbleOptions.FONT_CYCLE.indexOf(font) >= 0, "font cycle must include " + font);
+    assert.equal(bubbleOptions.normalizeBubbleOptions({ font }).font, font, "a new font must survive normalize");
+  }
+  assert.equal(Object.keys(bubbleOptions.FONTS).length, 19, "nineteen fonts total");
+  /* Serif was removed in v0.1.14 (identical stack to Georgia);
+     a saved "serif" loads as Georgia. */
+  assert.equal(bubbleOptions.FONTS.serif, undefined, "serif must be gone from the font list");
+  assert.equal(bubbleOptions.normalizeBubbleOptions({ font: "serif" }).font, "georgia", "a saved serif must migrate to Georgia");
   assert.equal(bubbleOptions.normalizeBubbleOptions({ font: "georgia" }).font, "georgia", "a new font must survive normalize");
   assert.equal(bubbleOptions.normalizeBubbleOptions({ font: "nope" }).font, "mono", "an unknown font must fall back to Mono");
   assert.equal(bubbleOptions.normalizeBubbleOptions({}).font, "mono", "the default font must stay Mono");
-  /* System fonts only — nothing to download. */
+  /* System fonts only — nothing to download. Every stack ends in
+     a generic family so a missing family never renders broken. */
   for (const stack of Object.values(bubbleOptions.FONTS)) {
     assert.ok(!/url\(|@font-face|http/.test(stack), "font stacks must be system fonts, no downloads: " + stack);
+    assert.ok(/, (sans-serif|serif|monospace|cursive)$/.test(stack), "every stack must end in a generic family: " + stack);
   }
 });

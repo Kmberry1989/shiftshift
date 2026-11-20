@@ -46,14 +46,14 @@ test("token helpers: generation, formatting, constant-time compare", () => {
 test("server binds loopback only; /status is open; /events needs the token", async (t) => {
   const { server, port } = await createExtensionServer({
     port: 0, token: TOKEN, getEvents,
-    getStatus: () => ({ version: "0.1.13", events: EVENTS.length }),
+    getStatus: () => ({ version: "0.1.14", events: EVENTS.length }),
   });
   t.after(() => new Promise((res) => server.close(res)));
   assert.equal(server.address().address, "127.0.0.1", "loopback only");
 
   const status = await req(port, "/status");
   assert.equal(status.status, 200);
-  assert.deepEqual(JSON.parse(status.body), { ok: true, app: "Shift Shift", version: "0.1.13", events: 2 });
+  assert.deepEqual(JSON.parse(status.body), { ok: true, app: "Shift Shift", version: "0.1.14", events: 2 });
 
   const noToken = await req(port, "/events");
   assert.equal(noToken.status, 401, "no token → 401");

@@ -46,10 +46,12 @@ test("no hover scale applies while a drag is active", () => {
   assert.ok(stylesCss.includes("transform: none !important"), "drag suppression must override the hover rules");
 });
 
-test("sound styles: four distinct sets, Bubbly default, sample on change", () => {
-  for (const style of ["bubbly", "chime", "click", "pop"]) {
+test("sound styles: eight distinct sets, Bubbly default, sample on change", () => {
+  for (const style of ["bubbly", "chime", "click", "pop", "thud", "sparkle", "zap", "pluck"]) {
     assert.ok(rendererJs.includes(style + ": {"), "renderer must define the " + style + " sound set");
   }
+  assert.ok(mainJs.includes('const SOUND_STYLES = ["bubbly", "chime", "click", "pop", "thud", "sparkle", "zap", "pluck"];'),
+    "main must validate all eight sound styles");
   assert.ok(rendererJs.includes('let soundStyle = "bubbly"'), "default sound style must be Bubbly");
   assert.ok(rendererJs.includes("function playStyled("), "sounds must go through the style table");
   assert.ok(mainJs.includes('ipcMain.handle("sideshow:get-sound-style"'), "main must handle get-sound-style");
@@ -63,6 +65,21 @@ test("sound styles: four distinct sets, Bubbly default, sample on change", () =>
      square and short, pop drops in pitch. */
   assert.ok(rendererJs.includes('"square"'), "Click set must use square waves");
   assert.ok(rendererJs.includes("[900, 250,"), "Pop set must drop in pitch on copy");
+  /* v0.1.14: four more, each audibly distinct from the first four
+     and from each other — Thud is low and drum-like, Sparkle is
+     very high and short, Zap is the only sawtooth, Pluck is a
+     flat mid-tone triangle (mellower than Click's square). */
+  assert.ok(rendererJs.includes("[220, 110,"), "Thud copy must be low and dropping");
+  assert.ok(rendererJs.includes("[2600, 3600,"), "Sparkle copy must be very high");
+  assert.ok(rendererJs.includes('"sawtooth"'), "Zap set must use sawtooth waves");
+  assert.ok(rendererJs.includes("[900, 900,"), "Pluck copy must be flat and mid-tone");
+  /* Every style defines all four moments + tick, and every style
+     has a label and a cycle entry. */
+  for (const style of ["bubbly", "chime", "click", "pop", "thud", "sparkle", "zap", "pluck"]) {
+    assert.ok(rendererJs.includes(style + ": {"), "renderer must define the " + style + " sound set");
+  }
+  assert.ok(rendererJs.includes('const SOUND_STYLE_CYCLE = ["bubbly", "chime", "click", "pop", "thud", "sparkle", "zap", "pluck"];'),
+    "the sound cycle must include all eight styles");
 });
 
 test("tooltips: native titles, a disable setting, and coverage of the interactive elements", () => {

@@ -65,9 +65,9 @@ body {
   touch-action: none;
 }
 .bubble-header button {
-  border: 1px solid var(--line);
+  border: 1px solid var(--bubble-border, var(--line));
   background: var(--bubble-fill);
-  color: var(--icon-color-user, var(--ink-soft));
+  color: var(--icon-color-user, var(--bubble-ink-soft-user, var(--bubble-ink-soft-auto, var(--ink-soft))));
   line-height: 1;
   cursor: pointer;
   width: 36px;
@@ -80,8 +80,8 @@ body {
   border-radius: 999px;
   transition: color var(--dur) var(--ease), transform var(--dur) var(--ease), border-color var(--dur) var(--ease);
 }
-.bubble-header button:hover { color: var(--icon-color-user, var(--ink)); transform: scale(1.08); }
-.bubble-header button.active { border-color: var(--accent); color: var(--accent); }
+.bubble-header button:hover { color: var(--icon-color-user, var(--bubble-ink-user, var(--bubble-ink-auto, var(--ink)))); transform: scale(1.08); }
+.bubble-header button.active { border-color: var(--accent); color: var(--accent-text, var(--accent)); }
 .bubble-header button svg { display: block; }
 #settingsBtn svg { width: 21px; height: 21px; }
 #calendarViewBtn svg { width: 18px; height: 18px; }
@@ -95,7 +95,7 @@ body {
   display: flex;
   align-items: center;
   gap: 6px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--bubble-border, var(--line));
   background: var(--bubble-fill);
   border-radius: 999px;
   padding: 4px 10px;
@@ -105,7 +105,7 @@ body {
   width: 16px;
   height: 16px;
   flex: none;
-  color: var(--icon-color-user, var(--ink-soft));
+  color: var(--icon-color-user, var(--bubble-ink-soft-user, var(--bubble-ink-soft-auto, var(--ink-soft))));
 }
 .search-box input {
   flex: 1;
@@ -115,11 +115,14 @@ body {
   background: transparent;
   padding: 0;
   font: inherit;
-  color: var(--ink);
+  color: var(--bubble-ink-user, var(--bubble-ink-auto, var(--ink)));
   -webkit-user-select: text;
   user-select: text;
   -webkit-touch-callout: default;
 }
+/* The placeholder takes the theme's soft ink, so it reads on the
+   theme fill instead of the default dark ink. */
+.search-box input::placeholder { color: var(--bubble-ink-soft-user, var(--bubble-ink-soft-auto, var(--ink-soft))); }
 .status { margin: 0 14px 6px; font-size: 12.5px; color: var(--ink-soft); min-height: 0; }
 .status:empty { display: none; }
 
@@ -290,7 +293,7 @@ body {
 /* Same 34px hit area as the eye, same negative margins, so the
    layout footprint is unchanged. Pinned, the pin fills in. */
 .pin-btn { margin: -5px -2px -6px -4px; }
-.pin-btn.pinned { color: var(--accent); }
+.pin-btn.pinned { color: var(--accent-text, var(--accent)); }
 .pin-btn.pinned svg { fill: currentColor; }
 
 /* ---------- Next up ---------- */
@@ -326,7 +329,7 @@ body {
 .next-up-countdown {
   font-size: 12.5px;
   font-weight: 700;
-  color: var(--accent);
+  color: var(--accent-text, var(--accent));
   white-space: nowrap;
   flex: none;
   margin-top: 2px;
@@ -446,7 +449,7 @@ body {
   color: var(--bubble-ink-user, var(--bubble-ink-auto, var(--ink)));
   padding: 2px 2px 4px;
 }
-.week-day.week-today .week-day-head { color: var(--accent); }
+.week-day.week-today .week-day-head { color: var(--accent-text, var(--accent)); }
 .week-event {
   display: flex;
   flex-wrap: wrap;
@@ -502,6 +505,10 @@ body {
 #bubbleView.is-dragging .bubble-tree .value-bubble:hover,
 #bubbleView.is-dragging .bubble-tree .event-bubble,
 #bubbleView.is-dragging .bubble-tree .value-bubble { transform: none !important; }
+/* The pulse lives on the branch, not the bubble, so the guard above
+   never reached it: the whole branch kept breathing (1 → 1.01)
+   while the panel was dragged. A drag freezes the pulse too. */
+#bubbleView.is-dragging #bubbleTree.pulse .pulse-item { animation: none !important; }
 
 /* ---------- Per-field text styling ---------- */
 /* Applied by the renderer to a value bubble or the event title,
@@ -637,9 +644,12 @@ body {
 .btn:hover { filter: brightness(1.07); }
 .btn:active { transform: translateY(1px); }
 .btn.plain { background: var(--surface); border-color: var(--line); color: var(--ink); }
-.btn.plain.active { border-color: var(--accent); color: var(--accent); }
+.btn.plain.active { border-color: var(--accent); color: var(--accent-on-surface, var(--accent-text, var(--accent))); }
 
-/* ---------- Settings view (a solid card floating on the desktop) ---------- */
+/* Settings view (a solid card floating on the desktop) — softened
+   in v0.1.14: in the light scheme the text ink is a softer warm
+   brown instead of the near-black, so the white card no longer
+   reads stark. Dark scheme keeps its light ink. */
 .settings-view {
   position: absolute;
   inset: 8px;
@@ -648,6 +658,9 @@ body {
   border-radius: 16px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
   font-family: "Public Sans", system-ui, -apple-system, sans-serif;
+}
+@media (prefers-color-scheme: light) {
+  .settings-view { --ink: #4a3f35; }
 }
 /* Settings window (settings.html): a normal opaque window, so the
    settings form fills it instead of floating as a card on the
@@ -703,10 +716,12 @@ body.settings-window .settings-view {
   border: 0; background: none; color: var(--ink-soft);
   font-size: 12.5px; font-weight: 600; cursor: pointer;
   padding: 4px 8px; border-radius: 999px;
+  /* A soft shadow under the label so it reads on a tinted pill. */
+  text-shadow: 0 1px 2px rgba(29, 23, 18, 0.28), 0 0 3px rgba(29, 23, 18, 0.18);
   transition: color var(--dur) var(--ease), background-color var(--dur) var(--ease);
 }
 .settings-tab:hover { color: var(--ink); }
-.settings-tab.active { color: var(--accent); background: var(--chip); }
+.settings-tab.active { color: var(--accent-on-surface, var(--accent-text, var(--accent))); background: var(--chip); }
 .settings-tab-panel { display: flex; flex-direction: column; gap: 12px; }
 .settings-tab-panel[hidden] { display: none; }
 /* Sliders (scale, shadow strength, roundness) with a value read-out. */
@@ -735,7 +750,7 @@ input[type="color"].color-input::-moz-color-swatch { border: none; border-radius
   border-radius: 6px; padding: 3px 8px; font-size: 12.5px; cursor: pointer; min-width: 28px;
   transition: background-color var(--dur) var(--ease), border-color var(--dur) var(--ease), color var(--dur) var(--ease);
 }
-.field-toggle.active { border-color: var(--accent); color: var(--accent); background: var(--chip); }
+.field-toggle.active { border-color: var(--accent); color: var(--accent-on-surface, var(--accent-text, var(--accent))); background: var(--chip); }
 .field-toggle.field-italic-toggle { font-style: italic; }
 .field-toggle.field-underline-toggle { text-decoration: underline; }
 .field-toggle.field-bold-toggle { font-weight: 700; }
@@ -759,10 +774,10 @@ input[type="color"].color-input::-moz-color-swatch { border: none; border-radius
 }
 #authLabel { font-size: 12.5px; color: var(--ink-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .setting { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.setting-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--ink-soft); flex: none; }
+.setting-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--ink-soft); flex: none; }
 .setting-btn { padding: 4px 9px; font-size: 12.5px; }
 .setting-btn.small { padding: 4px 7px; }
-.setting-btn.listening { border-color: var(--accent); color: var(--accent); }
+.setting-btn.listening { border-color: var(--accent); color: var(--accent-on-surface, var(--accent-text, var(--accent))); }
 .setting-btn.saved { animation: savedflash .9s ease-out; }
 @keyframes savedflash {
   0% { background: var(--good-bg); border-color: var(--good); color: var(--good); }
@@ -798,7 +813,7 @@ span.event-row-title { cursor: default; }
 .event-edit { display: flex; flex-direction: column; gap: 8px; padding: 10px 0 4px; }
 .event-edit-field {
   display: flex; flex-direction: column; gap: 2px;
-  font-size: 11px; font-weight: 700; text-transform: uppercase;
+  font-size: 11px; font-weight: 600; text-transform: uppercase;
   letter-spacing: .04em; color: var(--ink-soft);
 }
 .event-edit-field input {

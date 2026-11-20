@@ -1,9 +1,11 @@
 "use strict";
 /* v0.1.13: rename Sideshow → Shift Shift, companion browser
    extension (loopback server + pairing), in-place patch updates
-   (electron-updater). Static checks for the pieces that need
-   Electron to run live; the live behavior is verified headlessly in
-   the smoke run. */
+   (electron-updater). v0.1.14: white default theme + white static
+   icon, theme icons shrunk to 256, installer seeds the updater
+   cache so patch updates can diff. Static checks for the pieces
+   that need Electron to run live; the live behavior is verified
+   headlessly in the smoke run. */
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
@@ -25,8 +27,8 @@ const packJs = read(path.join(DESKTOP, "scripts", "pack.js"));
 
 /* ---------- Part 1: rename ---------- */
 
-test("package.json: Shift Shift 0.1.13, new appId, GitHub publish config", () => {
-  assert.equal(pkg.version, "0.1.13");
+test("package.json: Shift Shift 0.1.14, new appId, GitHub publish config", () => {
+  assert.equal(pkg.version, "0.1.14");
   assert.equal(pkg.build.productName, "Shift Shift");
   assert.equal(pkg.build.appId, "com.firedarts.shiftshift");
   assert.equal(pkg.name, "shift-shift-desktop");
@@ -37,13 +39,18 @@ test("package.json: Shift Shift 0.1.13, new appId, GitHub publish config", () =>
   assert.equal(pkg.build.nsis.differentialPackage, true);
 });
 
-test("installer.nsi: Shift Shift names, 0.1.13, old Sideshow install removed", () => {
+test("installer.nsi: Shift Shift names, 0.1.14, old Sideshow install removed, updater cache seeded", () => {
   assert.ok(nsi.includes('Name "Shift Shift"'), "NSIS Name");
-  assert.ok(nsi.includes('OutFile "dist/Shift Shift Setup 0.1.13.exe"'), "NSIS OutFile");
-  assert.ok(nsi.includes('"DisplayVersion" "0.1.13"'), "NSIS DisplayVersion");
+  assert.ok(nsi.includes('OutFile "dist/Shift Shift Setup 0.1.14.exe"'), "NSIS OutFile");
+  assert.ok(nsi.includes('"DisplayVersion" "0.1.14"'), "NSIS DisplayVersion");
   assert.ok(nsi.includes("$LOCALAPPDATA\\Programs\\Shift Shift"), "install dir");
   assert.ok(nsi.includes('RMDir /r "$LOCALAPPDATA\\Programs\\Sideshow"'), "old install removed on upgrade");
   assert.ok(!nsi.includes('Name "Sideshow"'), "no old app name left");
+  /* v0.1.14: the installer must seed electron-updater's differential
+     cache, or the first patch update is a full download (stock NSIS
+     behavior our hand-written script was missing). */
+  assert.ok(nsi.includes('CreateDirectory "$LOCALAPPDATA\\shift-shift-desktop-updater"'), "updater cache dir created");
+  assert.ok(nsi.includes('CopyFiles /SILENT "$EXEPATH" "$LOCALAPPDATA\\shift-shift-desktop-updater\\installer.exe"'), "running installer copied to updater cache as installer.exe");
 });
 
 test("user-visible strings say Shift Shift (tray, settings title, OAuth page)", () => {
@@ -53,7 +60,7 @@ test("user-visible strings say Shift Shift (tray, settings title, OAuth page)", 
   assert.ok(mainJs.includes("<p>Return to Shift Shift.</p>"), "OAuth success page");
   assert.ok(indexHtml.includes("<title>Shift Shift</title>"), "bubble title");
   assert.ok(settingsHtml.includes("<title>Shift Shift Settings</title>"), "settings title");
-  assert.ok(helpHtml.includes("Shift Shift v0.1.13"), "help page version");
+  assert.ok(helpHtml.includes("Shift Shift v0.1.14"), "help page version");
   assert.ok(!helpHtml.includes("Sideshow v0.1.12"), "no stale version in help");
 });
 
@@ -134,7 +141,7 @@ test("extension manifest is MV3 for Chrome + Edge, loopback + Facebook/Wix hosts
   const manifest = JSON.parse(read(path.join(REPO, "extension", "manifest.json")));
   assert.equal(manifest.manifest_version, 3);
   assert.equal(manifest.name, "Shift Shift Fill");
-  assert.equal(manifest.version, "0.1.13");
+  assert.equal(manifest.version, "0.1.14");
   assert.ok(manifest.host_permissions.indexOf("http://127.0.0.1:53683/*") >= 0, "loopback host");
   assert.ok(manifest.content_scripts[0].matches.indexOf("https://www.facebook.com/*") >= 0, "Facebook content script");
   assert.ok(manifest.content_scripts[0].js.indexOf("fill.js") >= 0, "fill logic ships with the content script");
@@ -165,19 +172,19 @@ test("electron-updater wired: launch check, tray + settings manual check", () =>
 const { computeFileHash, buildLatestYml, publishedInstallerName, buildBlockmap } = require("../scripts/publish-release.js");
 
 test("publish helpers: latest.yml shape, published name, file hash", () => {
-  assert.equal(publishedInstallerName("0.1.13"), "Shift Shift.Setup.0.1.13.exe");
+  assert.equal(publishedInstallerName("0.1.14"), "Shift.Shift.Setup.0.1.14.exe");
   const yml = buildLatestYml({
-    version: "0.1.13",
-    fileName: "Shift Shift.Setup.0.1.13.exe",
+    version: "0.1.14",
+    fileName: "Shift.Shift.Setup.0.1.14.exe",
     sha512: "abc123==",
     size: 12345,
     releaseDate: "2026-11-19T00:00:00.000Z",
   });
-  assert.ok(yml.includes("version: 0.1.13"), "yml version");
-  assert.ok(yml.includes("url: Shift Shift.Setup.0.1.13.exe"), "yml file url");
+  assert.ok(yml.includes("version: 0.1.14"), "yml version");
+  assert.ok(yml.includes("url: Shift.Shift.Setup.0.1.14.exe"), "yml file url");
   assert.ok(yml.includes("sha512: abc123=="), "yml sha512");
   assert.ok(yml.includes("size: 12345"), "yml size");
-  assert.ok(yml.includes("path: Shift Shift.Setup.0.1.13.exe"), "yml path");
+  assert.ok(yml.includes("path: Shift.Shift.Setup.0.1.14.exe"), "yml path");
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "shift-shift-publish-"));
   const file = path.join(dir, "x.bin");
   fs.writeFileSync(file, "hello");

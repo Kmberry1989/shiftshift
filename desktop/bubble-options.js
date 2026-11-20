@@ -8,9 +8,15 @@
    everything at defaults and no option is mandatory.
 
    scale         80–150 (%) — scales the whole bubble tree; default 100.
-   font          system | mono | serif | rounded (system fonts only).
-                 Default mono — the bubble text is already mono type,
-                 so that is the current look, not a new choice.
+   font          system | mono | rounded | georgia | palatino |
+                 verdana | tahoma | trebuchet | courier | arial |
+                 helvetica | times | segoe | futura | garamond |
+                 franklin | baskerville | impact | andale (system
+                 fonts only, each with a cross-platform fallback
+                 stack). Default mono — the bubble text is already
+                 mono type, so that is the current look, not a new
+                 choice. "serif" was removed in v0.1.14 (identical
+                 stack to Georgia); a saved "serif" loads as Georgia.
    weight        regular | medium | bold — base weight of bubble text.
    borderColor   null = the current per-look outline, or a hex color.
    shadowOn      true — a subtle shadow under the bubble.
@@ -43,8 +49,10 @@
                  hex color for the thumb alone. Changing the accent
                  no longer recolors the scrollbar once a color is
                  picked. The track is transparent either way.
-   scrollbarShape pill | rounded | square — the thumb's corners.
-                 Default pill (fully round, the current look).
+   scrollbarShape pill | square — the thumb's corners. Default pill
+                 (fully round, the current look). "rounded" was
+                 removed in v0.1.14 (identical to Pill on Slim); a
+                 saved "rounded" loads as Pill.
    iconColor     null = the theme ink (the current look), or a hex
                  color for the header icons (gear, magnifier, close).
    separation    bullets | lines | spacing — how entries are set
@@ -72,10 +80,11 @@ const FIELD_TITLES = {
   l: "Location",
 };
 
+const { textColorsFor } = require("./contrast.js");
+
 const FONTS = {
   system: '"Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif',
   mono: 'ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace',
-  serif: 'Georgia, "Times New Roman", "Noto Serif", serif',
   rounded: 'ui-rounded, "SF Pro Rounded", "Segoe UI", system-ui, sans-serif',
   georgia: 'Georgia, "Times New Roman", "Noto Serif", serif',
   palatino: '"Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif',
@@ -83,9 +92,24 @@ const FONTS = {
   tahoma: 'Tahoma, Geneva, Verdana, sans-serif',
   trebuchet: '"Trebuchet MS", "Segoe UI", Verdana, sans-serif',
   courier: '"Courier New", Courier, ui-monospace, monospace',
+  /* v0.1.14: ten more system fonts. Every stack ends in a generic
+     family and falls back across Windows/Mac, so a missing family
+     never renders broken — e.g. Segoe UI (Windows) falls back to
+     Helvetica Neue/Arial on Mac, Futura falls back to Century
+     Gothic on Windows. */
+  arial: 'Arial, Helvetica, "Segoe UI", sans-serif',
+  helvetica: '"Helvetica Neue", Helvetica, Arial, sans-serif',
+  times: '"Times New Roman", Times, "Noto Serif", serif',
+  segoe: '"Segoe UI", "Helvetica Neue", Arial, sans-serif',
+  futura: 'Futura, "Century Gothic", "Segoe UI", sans-serif',
+  garamond: 'Garamond, "EB Garamond", "Times New Roman", serif',
+  franklin: '"Franklin Gothic Medium", "Arial Narrow", Arial, sans-serif',
+  baskerville: 'Baskerville, "Times New Roman", serif',
+  impact: 'Impact, "Arial Black", sans-serif',
+  andale: '"Andale Mono", "SF Mono", Consolas, monospace',
 };
-const FONT_LABELS = { system: "System", mono: "Mono", serif: "Serif", rounded: "Rounded", georgia: "Georgia", palatino: "Palatino", verdana: "Verdana", tahoma: "Tahoma", trebuchet: "Trebuchet", courier: "Courier" };
-const FONT_CYCLE = ["mono", "system", "serif", "rounded", "georgia", "palatino", "verdana", "tahoma", "trebuchet", "courier"];
+const FONT_LABELS = { system: "System", mono: "Mono", rounded: "Rounded", georgia: "Georgia", palatino: "Palatino", verdana: "Verdana", tahoma: "Tahoma", trebuchet: "Trebuchet", courier: "Courier", arial: "Arial", helvetica: "Helvetica", times: "Times", segoe: "Segoe", futura: "Futura", garamond: "Garamond", franklin: "Franklin", baskerville: "Baskerville", impact: "Impact", andale: "Andale" };
+const FONT_CYCLE = ["mono", "system", "rounded", "georgia", "palatino", "verdana", "tahoma", "trebuchet", "courier", "arial", "helvetica", "times", "segoe", "futura", "garamond", "franklin", "baskerville", "impact", "andale"];
 
 const WEIGHTS = { regular: 400, medium: 500, bold: 700 };
 const WEIGHT_LABELS = { regular: "Regular", medium: "Medium", bold: "Bold" };
@@ -103,12 +127,13 @@ const SCROLLBARS = ["slim", "standard"];
 const SCROLLBAR_LABELS = { slim: "Slim", standard: "Standard" };
 const SCROLLBAR_CYCLE = ["slim", "standard"];
 
-/* Thumb corner shape: pill is fully round (the current look,
-   border-radius 999px), rounded is a small radius, square is sharp. */
-const SCROLLBAR_SHAPES = ["pill", "rounded", "square"];
-const SCROLLBAR_SHAPE_LABELS = { pill: "Pill", rounded: "Rounded", square: "Square" };
-const SCROLLBAR_SHAPE_CYCLE = ["pill", "rounded", "square"];
-const SCROLLBAR_SHAPE_RADIUS = { pill: "999px", rounded: "6px", square: "0" };
+/* Thumb corner shape: pill is fully round (the current look),
+   square is sharp. "rounded" was removed in v0.1.14 — it rendered
+   identically to Pill on Slim, so it was a duplicate. */
+const SCROLLBAR_SHAPES = ["pill", "square"];
+const SCROLLBAR_SHAPE_LABELS = { pill: "Pill", square: "Square" };
+const SCROLLBAR_SHAPE_CYCLE = ["pill", "square"];
+const SCROLLBAR_SHAPE_RADIUS = { pill: "999px", square: "0" };
 
 const SEPARATIONS = ["bullets", "lines", "spacing"];
 const SEPARATION_LABELS = { bullets: "Bullets", lines: "Lines", spacing: "Spacing" };
@@ -162,16 +187,18 @@ function rgba(hex, alpha) {
   return "rgba(" + rgb.r + ", " + rgb.g + ", " + rgb.b + ", " + alpha + ")";
 }
 
-/* Readable ink for a background color, by the same brightness rule
-   the accent color uses (0.299r + 0.587g + 0.114b > 140). Dark text
-   on a light background, light text on a dark one; soft is the
-   muted companion for subtitles, key badges, and the expand mark. */
+/* Readable ink for a background color, by real WCAG contrast
+   (see contrast.js): the ink and its muted companion are each
+   checked at 4.5:1, and adjusted (lightened/darkened, hue kept)
+   when neither candidate reaches it. Dark text on a light
+   background, light text on a dark one; soft is the muted
+   companion for subtitles, key badges, and the expand mark.
+   The usual results are the app's existing ink pair — the
+   adjustment only fires on mid-tone backgrounds where both
+   candidates fail (e.g. the Studio terracotta). */
 function readableInkFor(hex) {
-  const rgb = hexToRgb(hex);
-  if (!rgb) return null;
-  const bright = 0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b;
-  if (bright > 140) return { ink: "#2b2118", soft: "#5d4f42" };
-  return { ink: "#f2e9df", soft: "#c4b3a1" };
+  if (!isHex(hex)) return null;
+  return textColorsFor(hex);
 }
 
 function clampInt(v, min, max, fallback) {
@@ -201,7 +228,10 @@ function normalizeBubbleOptions(value) {
   const d = BUBBLE_OPTION_DEFAULTS;
   return {
     scale: clampInt(src.scale, 80, 150, d.scale),
-    font: FONTS[src.font] ? src.font : d.font,
+    /* v0.1.14 duplicate cuts: a saved "serif" font loads as
+       Georgia (identical stack), a saved "rounded" thumb shape
+       loads as Pill (identical render on Slim). */
+    font: src.font === "serif" ? "georgia" : (FONTS[src.font] ? src.font : d.font),
     weight: WEIGHTS[src.weight] ? src.weight : d.weight,
     borderColor: isHex(src.borderColor) ? src.borderColor : null,
     shadowOn: src.shadowOn === false ? false : (src.shadowOn === true ? true : d.shadowOn),
@@ -215,7 +245,7 @@ function normalizeBubbleOptions(value) {
     fieldStyles: normalizeFieldStyles(src.fieldStyles),
     scrollbar: SCROLLBARS.indexOf(src.scrollbar) >= 0 ? src.scrollbar : d.scrollbar,
     scrollbarColor: isHex(src.scrollbarColor) ? src.scrollbarColor : null,
-    scrollbarShape: SCROLLBAR_SHAPES.indexOf(src.scrollbarShape) >= 0 ? src.scrollbarShape : d.scrollbarShape,
+    scrollbarShape: src.scrollbarShape === "rounded" ? "pill" : (SCROLLBAR_SHAPES.indexOf(src.scrollbarShape) >= 0 ? src.scrollbarShape : d.scrollbarShape),
     iconColor: isHex(src.iconColor) ? src.iconColor : null,
     separation: SEPARATIONS.indexOf(src.separation) >= 0 ? src.separation : d.separation,
   };

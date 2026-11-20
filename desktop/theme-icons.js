@@ -1,13 +1,19 @@
 "use strict";
-/* Shift Shift color themes — the canonical theme table (v0.1.13).
+const { textColorsFor, accentTextFor } = require("./contrast.js");
+/* Shift Shift color themes — the canonical theme table (v0.1.13,
+   default changed to White in v0.1.14).
 
-   One entry per theme. Picking one in Settings > Appearance sets the
-   bubble look, background, and accent together (text ink back to
-   auto) AND swaps the runtime icon to that theme's Shift² variant.
+   One entry per theme. Picking one in Settings > Appearance sets
+   the bubble look, background, accent, text ink, and transparency
+   together (v0.1.14: the theme owns every readability-relevant
+   appearance setting — see themeTextColors) AND swaps the runtime
+   icon to that theme's Shift² variant.
    The three original presets (Studio, Dark, Light) have icon: null —
-   they keep the static app icon (orange Shift², assets/icon.png).
-   The eight neon themes each point at a 1024x1024 PNG master in
-   assets/icons/, cropped from Kyle's uploaded Shift² tiles.
+   they keep the static app icon (white Shift², assets/icon.png).
+   The eight neon themes each point at a 256x256 PNG in assets/icons/,
+   cropped from Kyle's uploaded Shift² tiles (1024 masters kept at
+   icon-options/theme-masters-1024/; the tray only ever shows them
+   at 16–32 px, so 256 is plenty).
 
    This module is pure (no Electron, no Node-only APIs) so the main
    process, the renderer bundle, and the tests all read the same
@@ -27,9 +33,9 @@ const THEMES = [
   { id: "cyan", label: "Cyan", appearance: "glass", bgColor: "#10292a", accent: "#0ee2e5", icon: "theme-cyan.png" },
 ];
 
-/* Fresh install: Studio — the terracotta glass the bubble has always
-   shipped with, on the static orange icon. */
-const DEFAULT_THEME = "studio";
+/* Fresh install: White (v0.1.14) — the white Shift² tile, so the
+   tray icon matches the dock/exe icon from the first launch. */
+const DEFAULT_THEME = "white";
 
 function themeById(id) {
   return THEMES.find((t) => t.id === id) || null;
@@ -42,4 +48,22 @@ function themeIconFile(id) {
   return t && t.icon ? t.icon : null;
 }
 
-module.exports = { THEMES, DEFAULT_THEME, themeById, themeIconFile };
+/* Contrast-checked text colors for a theme (v0.1.14 auto-contrast):
+   the text ink + soft ink for the theme background, and the theme
+   accent adjusted until it reads as text on that background.
+   The raw accent is unchanged everywhere else (borders, fills,
+   scrollbar, tray icon) — only its use as text is adjusted. The
+   three values are what applyPreset stores/applies; the tests
+   assert every theme passes 4.5:1 on all three. */
+function themeTextColors(theme) {
+  if (!theme || !theme.bgColor || !theme.accent) return null;
+  const text = textColorsFor(theme.bgColor);
+  if (!text) return null;
+  return {
+    ink: text.ink,
+    soft: text.soft,
+    accentText: accentTextFor(theme.accent, theme.bgColor),
+  };
+}
+
+module.exports = { THEMES, DEFAULT_THEME, themeById, themeIconFile, themeTextColors };

@@ -64,14 +64,14 @@ test("normalization clamps and rejects bad values", () => {
 
 test("valid values survive normalization", () => {
   const d = bo.normalizeBubbleOptions({
-    scale: 80, font: "serif", weight: "bold",
+    scale: 80, font: "georgia", weight: "bold",
     borderColor: "#4a6fa5", shadowOn: false, shadowStrength: 75,
     bgColor: "#2b2118", cornerStyle: "right", cornerRadius: 0,
     align: "center", pulse: false, textColor: "#c9962e",
     fieldStyles: { d: { italic: true }, p: { underline: true, bold: true } },
   });
   assert.equal(d.scale, 80);
-  assert.equal(d.font, "serif");
+  assert.equal(d.font, "georgia");
   assert.equal(d.weight, "bold");
   assert.equal(d.borderColor, "#4a6fa5");
   assert.equal(d.shadowOn, false);
@@ -129,6 +129,17 @@ test("scrollbar, icon color and separation survive normalization; bad values fal
   assert.equal(bo.SEPARATION_LABELS.bullets, "Bullets");
 });
 
+test("removed duplicates migrate on load: serif font to Georgia, rounded thumb shape to Pill", () => {
+  assert.equal(bo.normalizeBubbleOptions({ font: "serif" }).font, "georgia");
+  assert.equal(bo.normalizeBubbleOptions({ scrollbarShape: "rounded" }).scrollbarShape, "pill");
+  assert.equal(bo.FONTS.serif, undefined);
+  assert.equal(bo.FONT_LABELS.serif, undefined);
+  assert.equal(bo.FONT_CYCLE.indexOf("serif"), -1);
+  assert.equal(bo.SCROLLBAR_SHAPE_LABELS.rounded, undefined);
+  assert.equal(bo.SCROLLBAR_SHAPE_RADIUS.rounded, undefined);
+  assert.equal(bo.SCROLLBAR_SHAPE_CYCLE.indexOf("rounded"), -1);
+});
+
 test("scrollbar color and thumb shape survive normalization; bad values fall back", () => {
   const d = bo.normalizeBubbleOptions({
     scrollbarColor: "#4a6fa5", scrollbarShape: "square",
@@ -140,21 +151,28 @@ test("scrollbar color and thumb shape survive normalization; bad values fall bac
   });
   assert.equal(bad.scrollbarColor, null); /* unset = accent, the current look */
   assert.equal(bad.scrollbarShape, "pill");
-  assert.deepEqual(bo.SCROLLBAR_SHAPE_CYCLE, ["pill", "rounded", "square"]);
+  assert.deepEqual(bo.SCROLLBAR_SHAPE_CYCLE, ["pill", "square"]);
   assert.equal(bo.SCROLLBAR_SHAPE_LABELS.pill, "Pill");
-  assert.equal(bo.SCROLLBAR_SHAPE_LABELS.rounded, "Rounded");
   assert.equal(bo.SCROLLBAR_SHAPE_LABELS.square, "Square");
   assert.equal(bo.SCROLLBAR_SHAPE_RADIUS.pill, "999px");
-  assert.equal(bo.SCROLLBAR_SHAPE_RADIUS.rounded, "6px");
   assert.equal(bo.SCROLLBAR_SHAPE_RADIUS.square, "0");
 });
 
 test("readableInkFor keeps text readable on dark and light backgrounds", () => {
   // White / light: dark ink.
   assert.deepEqual(bo.readableInkFor("#ffffff"), { ink: "#2b2118", soft: "#5d4f42" });
-  assert.deepEqual(bo.readableInkFor("#e07a45"), { ink: "#2b2118", soft: "#5d4f42" });
+  /* Mid-tone orange: the dark ink still passes, but the old soft
+     (#5d4f42, 2.9:1) does not — it is darkened to hold 4.5:1. */
+  assert.deepEqual(bo.readableInkFor("#e07a45"), { ink: "#2b2118", soft: "#362d26" });
   // Dark: light ink.
   assert.deepEqual(bo.readableInkFor("#2b2118"), { ink: "#f2e9df", soft: "#c4b3a1" });
   assert.deepEqual(bo.readableInkFor("#000000"), { ink: "#f2e9df", soft: "#c4b3a1" });
   assert.equal(bo.readableInkFor("not-a-color"), null);
+  /* Both inks hold WCAG AA 4.5:1 on every background above. */
+  const { contrastRatio } = require("../contrast.js");
+  for (const bg of ["#ffffff", "#e07a45", "#2b2118", "#000000"]) {
+    const c = bo.readableInkFor(bg);
+    assert.ok(contrastRatio(c.ink, bg) >= 4.5, "ink must read on " + bg);
+    assert.ok(contrastRatio(c.soft, bg) >= 4.5, "soft ink must read on " + bg);
+  }
 });

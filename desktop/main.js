@@ -16,6 +16,7 @@ const http = require("http");
 const crypto = require("crypto");
 const position = require("./position.js");
 const bubbleOptions = require("./bubble-options.js");
+const { reminderFireMs } = require("./reminder-time.js");
 const { DEFAULT_THEME, themeById, themeIconFile } = require("./theme-icons.js");
 const { migrateLegacyUserData } = require("./migrate-userdata.js");
 const extensionServer = require("./extension-server.js");
@@ -621,10 +622,14 @@ function createTray() {
    reminders are skipped silently — the panel still works. */
 
 const REMINDER_FILE = "sideshow-reminders.json";
-/* Lead-time list — Kyle's pick (Nov 10, 2026): 5, 15, 30, 60 minutes.
-   It lives in this one constant so changing it is a one-line edit. Minutes
-   before an event starts that its reminder fires. Default 15. */
-const REMINDER_LEAD_MINUTES = [5, 15, 30, 60];
+/* Lead-time list — Kyle's picks: 5, 15, 30, 60 minutes (Nov 10,
+   2026) plus 2 hours, 1 day, 2 days, 1 week (Nov 19, 2026).
+   It lives in this one constant so changing it is a one-line edit.
+   Values are minutes before an event starts that its reminder
+   fires. Default 15. Whole-day leads fire at the same wall-clock
+   time the day(s) before — see reminderFireMs in
+   reminder-time.js (calendar days, not 1440-minute epochs). */
+const REMINDER_LEAD_MINUTES = [5, 15, 30, 60, 120, 1440, 2880, 10080];
 const REMINDER_LEAD_DEFAULT = 15;
 let reminderTimers = [];
 let firedReminders = null; /* Set of keys, persisted in userData. */
@@ -695,13 +700,15 @@ function scheduleReminders(events) {
   const fired = loadFiredReminders();
   if (!remindersEnabled() || !Array.isArray(events)) return;
   const lead = reminderLeadMinutes();
-  const leadMs = lead * 60 * 1000;
   const leadKey = lead + "m";
   events.forEach((ev) => {
     const startMs = eventStartMs(ev);
     if (startMs == null || startMs <= now) return;
-    const fireAt = startMs - leadMs;
-    if (fireAt <= now) return;
+    /* Day-based leads subtract calendar days (same wall-clock
+       time), so a 1-day lead still fires at the right time across
+       a DST change; minute/hour leads subtract minutes. */
+    const fireAt = reminderFireMs(startMs, lead);
+    if (fireAt == null || fireAt <= now) return;
     const key = reminderKey(ev, leadKey, startMs);
     if (fired.has(key)) return;
     const delay = fireAt - now;
@@ -1399,10 +1406,11 @@ ipcMain.handle("sideshow:set-sound", (_e, enabled) => {
 
 /* Sound style: which set of synthesized sounds plays. "bubbly" is
    the current set (default); "chime", "click", and "pop" are
-   distinct sets for the open / close / copy moments. The Sound
-   on/off toggle stays the master switch — the style only matters
-   while sound is on. */
-const SOUND_STYLES = ["bubbly", "chime", "click", "pop"];
+   distinct sets for the open / close / copy moments, and v0.1.14
+   adds "thud", "sparkle", "zap", and "pluck" — each audibly
+   distinct from the rest. The Sound on/off toggle stays the master
+   switch — the style only matters while sound is on. */
+const SOUND_STYLES = ["bubbly", "chime", "click", "pop", "thud", "sparkle", "zap", "pluck"];
 ipcMain.handle("sideshow:get-sound-style", () => {
   return SOUND_STYLES.indexOf(settings.soundStyle) >= 0 ? settings.soundStyle : "bubbly";
 });
@@ -1466,8 +1474,8 @@ ipcMain.handle("sideshow:set-reminders", (_e, enabled) => {
 });
 
 /* Reminder lead time: minutes before an event starts that its
-   reminder fires. One value from REMINDER_LEAD_MINUTES (Kyle's
-   pick: 5, 15, 30, 60, default 15); anything else falls
+   reminder fires. One value from REMINDER_LEAD_MINUTES (5, 15, 30,
+   60, 120, 1440, 2880, 10080; default 15); anything else falls
    back to the default. Changing it reschedules — the renderer
    re-sends the event list after a change. */
 ipcMain.handle("sideshow:get-reminder-lead", () => reminderLeadMinutes());
@@ -1479,10 +1487,11 @@ ipcMain.handle("sideshow:set-reminder-lead", (_e, value) => {
   return v;
 });
 
-/* Theme: the saved preset theme id (default Studio). Setting one
-   swaps the tray icon live to that theme's Shift² variant; the
-   exe/dock icon is baked at build and stays orange. A manual accent
-   change does not touch the theme, so the icon stays with the theme
+/* Theme: the saved preset theme id (default White, v0.1.14).
+   Setting one swaps the tray icon live to that theme's Shift²
+   variant; the exe/dock icon is baked at build and stays white.
+   A manual accent change does not touch the theme, so the icon
+   stays with the theme
    pick. */
 ipcMain.handle("sideshow:get-theme", () => (themeById(settings.theme) ? settings.theme : DEFAULT_THEME));
 

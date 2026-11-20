@@ -14,7 +14,8 @@ import { eventTitle, eventWhen, eventMatches, fieldValueForKey, MONTHS, fmtDateS
 import { calendarEventToRecord, mergeEvents, monthGrid, groupEventsByDate, weekDates, shiftDateStr } from "./calendar.js";
 import { nextUpcomingEvent, formatCountdown, isAllDay } from "./nextup.js";
 import { classifyDragTarget, isDragMovement, shouldEngageDrag } from "./drag.js";
-import { THEMES as THEME_PRESETS } from "../theme-icons.js";
+import { THEMES as THEME_PRESETS, themeTextColors } from "../theme-icons.js";
+import { accentTextFor, accentInkFor, accentOnSurfacesFor } from "../contrast.js";
 import {
   FIELD_KEYS, FIELD_LABELS, FONTS, FONT_LABELS, FONT_CYCLE,
   WEIGHTS, WEIGHT_LABELS, WEIGHT_CYCLE,
@@ -55,7 +56,7 @@ let recordingGesture = false;
 let capturingDoubleTap = false;
 let recordingLongClick = false;
 let soundOn = true;
-let soundStyle = "bubbly"; /* bubbly (current) | chime | click | pop */
+let soundStyle = "bubbly"; /* bubbly (current) | chime | click | pop | thud | sparkle | zap | pluck */
 let copyAllFormat = "labeled"; /* labeled | plain — what Copy all puts on the clipboard */
 let tooltipsOn = true; /* hover tooltips on every interactive element */
 let audioCtx = null;
@@ -87,8 +88,17 @@ let signedIn = false;
 let hiddenIds = new Set(); /* event _ids hidden with the eye; stay in the bank, out of the bubble */
 let pinnedIds = new Set(); /* event _ids pinned; they render in the Pinned section at the top, not their normal place */
 let cachedMode = false; /* true while the tree shows the last fetched events because the live fetch failed */
-let reminderLead = 15; /* minutes before an event starts that its reminder fires (lead list: 5/15/30/60) */
-const REMINDER_LEAD_OPTIONS = [5, 15, 30, 60];
+let reminderLead = 15; /* minutes before an event starts that its reminder fires (lead list: 5/15/30/60 min, 2 h, 1/2 days, 1 week) */
+const REMINDER_LEAD_OPTIONS = [5, 15, 30, 60, 120, 1440, 2880, 10080];
+/* Friendly label for a lead: minutes stay "N min before", the
+   longer leads read as hours/days/weeks. */
+function reminderLeadLabel(lead) {
+  if (lead === 120) return "2 hours before";
+  if (lead === 1440) return "1 day before";
+  if (lead === 2880) return "2 days before";
+  if (lead === 10080) return "1 week before";
+  return lead + " min before";
+}
 let nextUpTimer = null; /* 30s tick that refreshes the Next up countdown in place */
 let nextUpShown = null; /* { event, startMs } currently shown in the Next up row */
 /* Bubble view mode: "tree" (the branch list), "calendar" (month
@@ -151,7 +161,11 @@ function blip(f0, f1, dur, gain, type) {
 /* Sound styles: each set is distinct across the three moments
    (panel opens, panel closes, value copied) plus the tick.
    Bubbly is the current set (default). Chime is higher and longer,
-   bell-like. Click is short and dry. Pop drops in pitch. All
+   bell-like. Click is short and dry. Pop drops in pitch. v0.1.14
+   adds four more, each audibly distinct from the first four and
+   from each other: Thud is low and drum-like, Sparkle is very
+   high and short, Zap is the only sawtooth, Pluck is a flat
+   mid-tone triangle (mellower than Click's square). All
    synthesized with Web Audio — no audio files. The Sound on/off
    toggle stays the master switch; the style only matters while
    sound is on. Each entry is [fromHz, toHz, seconds, gain, wave]. */
@@ -180,9 +194,33 @@ const SOUND_STYLES = {
     copy: [900, 250, 0.12, 0.12, "triangle"],
     tick: [800, 300, 0.05, 0.05, "triangle"],
   },
+  thud: {
+    open: [180, 90, 0.15, 0.12, "sine"],
+    close: [160, 80, 0.15, 0.10, "sine"],
+    copy: [220, 110, 0.16, 0.14, "sine"],
+    tick: [200, 120, 0.06, 0.05, "sine"],
+  },
+  sparkle: {
+    open: [2400, 3200, 0.08, 0.05, "sine"],
+    close: [2100, 2800, 0.08, 0.05, "sine"],
+    copy: [2600, 3600, 0.10, 0.06, "sine"],
+    tick: [3000, 3800, 0.05, 0.04, "sine"],
+  },
+  zap: {
+    open: [1200, 200, 0.09, 0.06, "sawtooth"],
+    close: [1000, 180, 0.09, 0.06, "sawtooth"],
+    copy: [1500, 250, 0.11, 0.08, "sawtooth"],
+    tick: [1300, 300, 0.05, 0.04, "sawtooth"],
+  },
+  pluck: {
+    open: [700, 700, 0.06, 0.08, "triangle"],
+    close: [600, 600, 0.06, 0.07, "triangle"],
+    copy: [900, 900, 0.07, 0.10, "triangle"],
+    tick: [800, 800, 0.04, 0.05, "triangle"],
+  },
 };
-const SOUND_STYLE_LABELS = { bubbly: "Bubbly", chime: "Chime", click: "Click", pop: "Pop" };
-const SOUND_STYLE_CYCLE = ["bubbly", "chime", "click", "pop"];
+const SOUND_STYLE_LABELS = { bubbly: "Bubbly", chime: "Chime", click: "Click", pop: "Pop", thud: "Thud", sparkle: "Sparkle", zap: "Zap", pluck: "Pluck" };
+const SOUND_STYLE_CYCLE = ["bubbly", "chime", "click", "pop", "thud", "sparkle", "zap", "pluck"];
 
 function playStyled(moment) {
   const style = SOUND_STYLES[soundStyle] || SOUND_STYLES.bubbly;
@@ -352,7 +390,14 @@ function isDarkScheme() {
 /* Apply the accent: one color for the copy confirmation and all UI
    accents (buttons, focus, selected states). A custom choice
    overrides the platform default; null removes the override so the
-   CSS platform default applies. */
+   CSS platform default applies. The accent is also used as TEXT
+   (active tabs, active buttons, pinned pins, the Next up
+   countdown), so two contrast-checked variants are derived from
+   it: --accent-text reads on the bubble background, and
+   --accent-on-surface reads on the settings surfaces (chip pill +
+   surface). The raw accent stays untouched for borders, fills, and
+   the scrollbar. The ink that sits ON an accent fill (--accent-ink,
+   the solid .btn) is contrast-checked too, not brightness-guessed. */
 function applyAccent() {
   const root = document.documentElement;
   if (!accentSettingValue) {
@@ -360,6 +405,8 @@ function applyAccent() {
     root.style.removeProperty("--accent-ink");
     root.style.removeProperty("--good");
     root.style.removeProperty("--good-bg");
+    root.style.removeProperty("--accent-text");
+    root.style.removeProperty("--accent-on-surface");
     return;
   }
   const hex = accentSettingValue;
@@ -368,10 +415,35 @@ function applyAccent() {
   /* Light tint for the copied-bubble background. */
   const bg = isDarkScheme() ? mixHex(hex, "#1d1712", 0.3) : mixHex(hex, "#ffffff", 0.12);
   root.style.setProperty("--good-bg", bg);
-  /* Readable ink on the accent (white on dark accents, dark on light). */
-  const r = parseInt(hex.substr(1, 2), 16), g = parseInt(hex.substr(3, 2), 16), b = parseInt(hex.substr(5, 2), 16);
-  const bright = 0.299 * r + 0.587 * g + 0.114 * b;
-  root.style.setProperty("--accent-ink", bright > 140 ? "#1d1712" : "#ffffff");
+  /* Readable ink on the accent fill. */
+  root.style.setProperty("--accent-ink", accentInkFor(hex));
+  applyAccentText();
+  /* Accent as text on the settings surfaces: the chip pill and the
+     surface are the backgrounds there, read live from the CSS so
+     the light/dark scheme is honored. */
+  try {
+    const cs = getComputedStyle(root);
+    const surfaces = [
+      (cs.getPropertyValue("--chip") || "").trim(),
+      (cs.getPropertyValue("--surface") || "").trim(),
+    ].filter(Boolean);
+    if (surfaces.length) root.style.setProperty("--accent-on-surface", accentOnSurfacesFor(hex, surfaces));
+    else root.style.removeProperty("--accent-on-surface");
+  } catch (e) { root.style.removeProperty("--accent-on-surface"); }
+}
+
+/* Accent as text on the bubble background: the accent, adjusted
+   (lightened/darkened, hue kept) until it reads at 4.5:1. No
+   accent or no background: the property is removed and the CSS
+   falls back to the raw accent. Re-run when the background
+   changes too (applyAppearance calls this). */
+function applyAccentText() {
+  const root = document.documentElement;
+  if (!accentSettingValue || !bubbleOptions.bgColor) {
+    root.style.removeProperty("--accent-text");
+    return;
+  }
+  root.style.setProperty("--accent-text", accentTextFor(accentSettingValue, bubbleOptions.bgColor));
 }
 
 function buildAccentSwatches() {
@@ -399,16 +471,19 @@ function buildAccentSwatches() {
 /* ---------- one-tap preset themes ---------- */
 
 /* Shortcuts, not a new store: applying one sets the existing
-   settings (look, background, accent, text ink) so the live preview
-   and the existing persistence work exactly as for manual picks.
-   Colors come only from the existing swatch palette. Text ink is
-   left to auto (null) so it is computed from the preset background
-   and always reads — even if an explicit text color was picked
-   before, the preset clears it. The eight neon themes also swap the
-   tray icon to their Shift² color (Studio, Dark, Light keep the
-   static orange icon); changing the accent by hand afterwards does
-   not change the theme or the icon. The list is the shared table in
-   ../theme-icons.js — main, renderer, and tests read the same one. */
+   settings so the live preview and the existing persistence work
+   exactly as for manual picks. Colors come only from the existing
+   swatch palette. The theme owns every readability-relevant
+   appearance setting (look, background, accent, text ink,
+   transparency) and its text colors are contrast-checked
+   (see themeTextColors) — even if an explicit text color was
+   picked before, the preset replaces it. The eight neon themes
+   also swap the tray icon to their Shift² color (Studio, Dark,
+   Light keep the static white icon); changing the accent by hand
+   afterwards does not change the theme or the icon. Font, weight,
+   border, shadow, and scrollbar stay the user's own. The list is
+   the shared table in ../theme-icons.js — main, renderer, and
+   tests read the same one. */
 function buildPresetButtons() {
   const wrap = $("presetBtns");
   if (!wrap || wrap.childElementCount) return; /* built once */
@@ -428,8 +503,17 @@ async function applyPreset(p) {
   accentSettingValue = p.accent;
   try { await window.sideshow.setAccent(p.accent); } catch (e) { /* stays local */ }
   try { await window.sideshow.setTheme(p.id); } catch (e) { /* icon stays as-is */ }
+  /* The theme owns every readability-relevant appearance setting,
+     so nothing is left to fix by hand: look, background, accent,
+     text ink, and transparency. The text ink is the theme's
+     contrast-checked ink (not auto-null), and the transparency is
+     the middle default, so the fill stays substantial enough that
+     the theme background dominates. */
   bubbleOptions.bgColor = p.bgColor;
-  bubbleOptions.textColor = null; /* auto ink from the preset background */
+  const colors = themeTextColors(p);
+  bubbleOptions.textColor = colors ? colors.ink : null;
+  transparencySetting = 50;
+  try { await window.sideshow.setTransparency(50); } catch (e) { /* stays local */ }
   await saveBubbleOptions();
   applyAccent();
   buildAccentSwatches();
@@ -474,6 +558,9 @@ function applyAppearance() {
     root.style.removeProperty("--bubble-ink-auto");
     root.style.removeProperty("--bubble-ink-soft-auto");
   }
+  /* The background just changed: the accent-as-text color is
+     derived from it, so refresh it too. */
+  applyAccentText();
 }
 
 /* ---------- bubble options: scale, font, border, shadow, bg,
@@ -1617,6 +1704,17 @@ function updateIgnoreMouse(x, y) {
   /* The settings window is a normal window; the panel's
      click-through state is the bubble's business only. */
   if (IS_SETTINGS_WINDOW) return;
+  /* While a drag is active the window must stay interactive. The
+     mousemove listener re-evaluates click-through on every move,
+     and as the panel slides under the pointer the pointer can land
+     on a gap between bubbles — flipping the window to click-through
+     mid-gesture breaks the pointer stream on Windows (a
+     pointercancel, or a move reporting buttons=0), which ends the
+     drag early, drops is-dragging, and lets the hover scale back
+     in while the user is still dragging. The drag started on a
+     bubble, so the state is already interactive; it stays that way
+     until pointerup. */
+  if (dragState) return;
   const el = document.elementFromPoint(x, y);
   const overInteractive = !!(el && el.closest && el.closest(CLICKABLE_SELECTOR));
   const ignore = !overInteractive;
@@ -1974,7 +2072,7 @@ async function refreshSettingsUI() {
     const lead = await window.sideshow.getReminderLead();
     if (typeof lead === "number") reminderLead = lead;
     const btn = $("reminderLeadBtn");
-    if (btn) btn.textContent = reminderLead + " min before";
+    if (btn) btn.textContent = reminderLeadLabel(reminderLead);
     /* The lead-time row only shows while reminders are on — it has
        nothing to set while they are off. */
     const row = $("reminderLeadRow");
@@ -2343,14 +2441,15 @@ document.addEventListener("DOMContentLoaded", () => {
     flashSaved(remindersBtn);
     if (remindersOn) syncEventsToMain();
   });
-  /* Reminder lead time — tap to cycle 5 / 15 / 30 / 60 minutes
-     before an event starts. Changing it
+  /* Reminder lead time — tap to cycle the lead list (minutes,
+     then 2 hours, then 1 day, 2 days, 1 week) before an event
+     starts. Changing it
      reschedules the reminders from the current event list. */
   const reminderLeadBtn = $("reminderLeadBtn");
   if (reminderLeadBtn) reminderLeadBtn.addEventListener("click", async () => {
     reminderLead = REMINDER_LEAD_OPTIONS[(REMINDER_LEAD_OPTIONS.indexOf(reminderLead) + 1) % REMINDER_LEAD_OPTIONS.length];
     try { await window.sideshow.setReminderLead(reminderLead); } catch (e) { /* stays local */ }
-    reminderLeadBtn.textContent = reminderLead + " min before";
+    reminderLeadBtn.textContent = reminderLeadLabel(reminderLead);
     flashSaved(reminderLeadBtn);
     if (remindersOn) syncEventsToMain();
   });
