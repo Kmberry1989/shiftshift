@@ -70,7 +70,7 @@
     "pack": "npm run build && node scripts/pack.js win32 darwin",
     "pack:linux": "npm run build && node scripts/pack.js linux",
     "start": "npm run build && electron .",
-    "test": "node --test test/fields.test.js test/summon.test.js test/calendar.test.js test/position.test.js test/bubble-options.test.js test/packaging.test.js test/settings-window.test.js test/calendar-view.test.js test/v019.test.js test/help.test.js test/no-drag.test.js test/v010.test.js test/touch-summon.test.js test/week-view.test.js test/copy-all.test.js test/v011.test.js test/trim.test.js test/v012.test.js test/v013.test.js test/extension-server.test.js test/extension-fill.test.js test/icon.test.js test/theme-icons.test.js test/contrast.test.js test/click-through.test.js test/v015.test.js test/v016.test.js"
+    "test": "node --test test/fields.test.js test/summon.test.js test/calendar.test.js test/position.test.js test/bubble-options.test.js test/packaging.test.js test/settings-window.test.js test/calendar-view.test.js test/v019.test.js test/help.test.js test/no-drag.test.js test/v010.test.js test/touch-summon.test.js test/week-view.test.js test/copy-all.test.js test/v011.test.js test/trim.test.js test/v012.test.js test/v013.test.js test/extension-server.test.js test/extension-fill.test.js test/icon.test.js test/theme-icons.test.js test/contrast.test.js test/click-through.test.js test/v015.test.js test/v016.test.js test/google-auth.test.js test/v017.test.js"
   },
-  "version": "0.1.16"
+  "version": "0.1.17"
 }

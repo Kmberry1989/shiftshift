@@ -19,6 +19,7 @@ const bubbleOptions = require("./bubble-options.js");
 const { reminderFireMs } = require("./reminder-time.js");
 const { DEFAULT_THEME, themeById, themeIconFile } = require("./theme-icons.js");
 const { migrateLegacyUserData } = require("./migrate-userdata.js");
+const { buildGoogleAuthUrl, createAuthUrlStore, copySignInLink } = require("./google-auth.js");
 const extensionServer = require("./extension-server.js");
 const { autoUpdater } = require("electron-updater");
 
@@ -86,6 +87,9 @@ let config = null;
 let oauthServer = null;
 let oauthState = null;
 let oauthVerifier = null;
+/* The authorization URL generated for the current sign-in attempt —
+   the copy control hands out exactly this URL. */
+const authUrlStore = createAuthUrlStore();
 let settings = {};
 let currentHotkey = DEFAULT_HOTKEY;
 /* Effective motion for the panel fade ("full" | "reduced" | "off").
@@ -894,17 +898,13 @@ async function startSignIn() {
   oauthState = base64url(crypto.randomBytes(16));
   oauthVerifier = base64url(crypto.randomBytes(32));
   const challenge = base64url(crypto.createHash("sha256").update(oauthVerifier).digest());
-  const params = new URLSearchParams({
-    client_id: config.googleOAuth.clientId,
-    redirect_uri: "http://127.0.0.1:" + OAUTH_PORT + "/callback",
-    response_type: "code",
-    scope: "openid email profile https://www.googleapis.com/auth/calendar.readonly",
+  const authUrl = buildGoogleAuthUrl({
+    clientId: config.googleOAuth.clientId,
+    redirectUri: "http://127.0.0.1:" + OAUTH_PORT + "/callback",
     state: oauthState,
-    code_challenge: challenge,
-    code_challenge_method: "S256",
-    access_type: "offline",
-    prompt: "consent",
+    challenge,
   });
+  authUrlStore.set(authUrl);
   oauthServer = http.createServer((req, res) => {
     try {
       const url = new URL(req.url, "http://127.0.0.1:" + OAUTH_PORT);
@@ -929,7 +929,11 @@ async function startSignIn() {
     }
   });
   oauthServer.listen(OAUTH_PORT, "127.0.0.1", () => {
-    shell.openExternal("https://accounts.google.com/o/oauth2/v2/auth?" + params.toString());
+    /* The copy control is live from here: the URL it hands out is
+       the one this attempt generated, and the loopback redirect
+       lands in the app no matter which browser completes the flow. */
+    sendToAllRenderers("sideshow:auth-started");
+    shell.openExternal(authUrl);
   });
   oauthServer.on("error", () => {
     stopOAuthServer();
@@ -941,6 +945,8 @@ function stopOAuthServer() {
   if (oauthServer) { try { oauthServer.close(); } catch (e) {} oauthServer = null; }
   oauthState = null;
   oauthVerifier = null;
+  authUrlStore.clear();
+  sendToAllRenderers("sideshow:auth-ended");
 }
 
 async function postToken(body) {
@@ -1107,6 +1113,16 @@ ipcMain.handle("sideshow:firebase-config", () => {
 });
 
 ipcMain.handle("sideshow:sign-in", () => { startSignIn(); return true; });
+
+/* Copy sign-in link: copies the exact authorization URL this attempt
+   generated, so the user can paste it into whichever browser holds
+   the account they want. Only the URL is copied — the PKCE verifier
+   never leaves the app. */
+ipcMain.handle("sideshow:copy-sign-in-link", () => copySignInLink(authUrlStore, clipboard));
+
+/* Whether a sign-in attempt is in progress, so a freshly opened
+   settings window can show the copy control in the right state. */
+ipcMain.handle("sideshow:sign-in-active", () => ({ active: !!oauthServer }));
 
 ipcMain.handle("sideshow:sign-out", () => { revokeRefreshToken(); return true; });
 

@@ -23,9 +23,9 @@ const fillJs = read(path.join(REPO, "extension", "fill.js"));
 const contentJs = read(path.join(REPO, "extension", "content.js"));
 const writeUpdateConfigJs = read(path.join(DESKTOP, "scripts", "write-update-config.js"));
 
-test("version 0.1.16 everywhere it is pinned", () => {
-  assert.equal(pkg.version, "0.1.16");
-  assert.ok(helpHtml.includes("Shift Shift v0.1.16"), "help page must say v0.1.16");
+test("version 0.1.17 everywhere it is pinned", () => {
+  assert.equal(pkg.version, "0.1.17");
+  assert.ok(helpHtml.includes("Shift Shift v0.1.17"), "help page must say v0.1.17");
 });
 
 test("publish config and HELP_URL point at the renamed repo shiftshift", () => {

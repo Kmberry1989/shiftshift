@@ -27,11 +27,11 @@ const FACEBOOK_CREATE_URL = "https://www.facebook.com/events/create";
    Navigation contract. */
 const WIX_NEW_EVENT_URL = "https://manage.wix.com/dashboard/cf57070b-8114-45e4-95b1-7242bf48c467/events/new";
 
-test("package.json, installer.nsi, and docs all say 0.1.16", () => {
-  assert.equal(pkg.version, "0.1.16");
-  assert.ok(nsi.includes('OutFile "dist/Shift Shift Setup 0.1.16.exe"'), "installer OutFile must be 0.1.16");
-  assert.ok(nsi.includes('"DisplayVersion" "0.1.16"'), "installer DisplayVersion must be 0.1.16");
-  assert.ok(helpHtml.includes("Shift Shift v0.1.16"), "the help page must say v0.1.16");
+test("package.json, installer.nsi, and docs all say 0.1.17", () => {
+  assert.equal(pkg.version, "0.1.17");
+  assert.ok(nsi.includes('OutFile "dist/Shift Shift Setup 0.1.17.exe"'), "installer OutFile must be 0.1.17");
+  assert.ok(nsi.includes('"DisplayVersion" "0.1.17"'), "installer DisplayVersion must be 0.1.17");
+  assert.ok(helpHtml.includes("Shift Shift v0.1.17"), "the help page must say v0.1.17");
 });
 
 test("Create event: the header has the button and a two-choice menu", () => {

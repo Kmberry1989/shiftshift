@@ -14,6 +14,8 @@ contextBridge.exposeInMainWorld("sideshow", {
   configStatus: () => ipcRenderer.invoke("sideshow:config-status"),
   firebaseConfig: () => ipcRenderer.invoke("sideshow:firebase-config"),
   signIn: () => ipcRenderer.invoke("sideshow:sign-in"),
+  copySignInLink: () => ipcRenderer.invoke("sideshow:copy-sign-in-link"),
+  signInActive: () => ipcRenderer.invoke("sideshow:sign-in-active"),
   signOut: () => ipcRenderer.invoke("sideshow:sign-out"),
   refreshToken: () => ipcRenderer.invoke("sideshow:refresh-token"),
   openConfigFolder: () => ipcRenderer.invoke("sideshow:open-config-folder"),
@@ -82,5 +84,7 @@ contextBridge.exposeInMainWorld("sideshow", {
   onPanelHiding: (fn) => ipcRenderer.on("sideshow:panel-hiding", () => fn()),
   onAuthToken: (fn) => ipcRenderer.on("sideshow:auth-token", (_e, data) => fn(data)),
   onAuthError: (fn) => ipcRenderer.on("sideshow:auth-error", () => fn()),
+  onAuthStarted: (fn) => ipcRenderer.on("sideshow:auth-started", () => fn()),
+  onAuthEnded: (fn) => ipcRenderer.on("sideshow:auth-ended", () => fn()),
   onConfigMissing: (fn) => ipcRenderer.on("sideshow:config-missing", (_e, st) => fn(st)),
 });

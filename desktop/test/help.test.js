@@ -22,8 +22,8 @@ const helpHtml = read(path.join(REPO, "docs", "index.html"));
 
 const HELP_URL = "https://kmberry1989.github.io/shiftshift/"; /* repo renamed Nov 19, 2026 */
 
-test("help page exists and covers Shift Shift v0.1.16", () => {
-  assert.ok(helpHtml.includes("Shift Shift v0.1.16"), "help page must name the version it documents");
+test("help page exists and covers Shift Shift v0.1.17", () => {
+  assert.ok(helpHtml.includes("Shift Shift v0.1.17"), "help page must name the version it documents");
   for (const section of ["Summoning", "Calendar view", "Settings window", "Google Calendar", "Signing in", "Installing"]) {
     assert.ok(helpHtml.includes(section), "help page must cover: " + section);
   }

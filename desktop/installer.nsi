@@ -20,7 +20,7 @@
 !include "FileFunc.nsh"
 
 Name "Shift Shift"
-OutFile "dist/Shift Shift Setup 0.1.16.exe"
+OutFile "dist/Shift Shift Setup 0.1.17.exe"
 InstallDir "$LOCALAPPDATA\Programs\Shift Shift"
 InstallDirRegKey HKCU "Software\Shift Shift" "InstallDir"
 RequestExecutionLevel user
@@ -60,7 +60,7 @@ Section "Install"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Shift Shift" "DisplayName" "Shift Shift"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Shift Shift" "UninstallString" "$INSTDIR\Uninstall.exe"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Shift Shift" "DisplayIcon" "$INSTDIR\Shift Shift.exe"
-  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Shift Shift" "DisplayVersion" "0.1.16"
+  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Shift Shift" "DisplayVersion" "0.1.17"
   WriteUninstaller "$INSTDIR\Uninstall.exe"
   CreateDirectory "$SMPROGRAMS\Shift Shift"
   CreateShortcut "$SMPROGRAMS\Shift Shift\Shift Shift.lnk" "$INSTDIR\Shift Shift.exe" "" "$INSTDIR\Shift Shift.exe" 0

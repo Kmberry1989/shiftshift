@@ -1809,6 +1809,20 @@ function subscribe() {
   });
 }
 
+/* Copy sign-in link: visible only while a sign-in attempt is in
+   progress. The link it copies is the authorization URL main
+   generated for this attempt — paste it into whichever browser
+   holds the account you want; the sign-in still finishes in the
+   app, because the loopback redirect lands on main's local
+   server no matter which browser completes the flow. */
+let signInFlowActive = false;
+function updateCopySignInLinkBtn() {
+  const btn = $("copySignInLinkBtn");
+  if (!btn) return;
+  btn.style.display = signInFlowActive ? "" : "none";
+  if (!signInFlowActive) btn.textContent = "Copy sign-in link";
+}
+
 function updateAuthUI(user) {
   const label = $("authLabel");
   const signInBtn = $("signInBtn");
@@ -1817,6 +1831,8 @@ function updateAuthUI(user) {
     if (label) label.textContent = user.email || "";
     if (signInBtn) signInBtn.style.display = "none";
     if (signOutBtn) signOutBtn.style.display = "";
+    signInFlowActive = false;
+    updateCopySignInLinkBtn();
   } else {
     if (label) label.textContent = "";
     if (signInBtn) signInBtn.style.display = "";
@@ -1901,6 +1917,8 @@ async function init() {
     if (data && data.idToken) signInWithIdToken(data.idToken);
   });
   window.sideshow.onAuthError(() => setStatus("Sign-in failed."));
+  window.sideshow.onAuthStarted(() => { signInFlowActive = true; updateCopySignInLinkBtn(); });
+  window.sideshow.onAuthEnded(() => { signInFlowActive = false; updateCopySignInLinkBtn(); });
   window.sideshow.onConfigMissing(() => { setState("config"); });
   // Silent sign-in from a stored refresh token.
   try {
@@ -2174,6 +2192,22 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const signInBtn = $("signInBtn");
   if (signInBtn) signInBtn.addEventListener("click", () => window.sideshow.signIn());
+  const copySignInLinkBtn = $("copySignInLinkBtn");
+  if (copySignInLinkBtn) {
+    copySignInLinkBtn.addEventListener("click", async () => {
+      const res = await window.sideshow.copySignInLink();
+      if (res && res.ok) {
+        copySignInLinkBtn.textContent = "Copied";
+        setTimeout(() => { copySignInLinkBtn.textContent = "Copy sign-in link"; }, 1500);
+      }
+    });
+    /* Settings may open mid-flow (e.g. sign-in started from the
+       bubble or tray): show the copy control in the right state. */
+    window.sideshow.signInActive().then((st) => {
+      signInFlowActive = !!(st && st.active);
+      updateCopySignInLinkBtn();
+    }).catch(() => { /* copy control stays hidden */ });
+  }
   const signOutBtn = $("signOutBtn");
   if (signOutBtn) signOutBtn.addEventListener("click", async () => {
     if (auth) await signOut(auth);

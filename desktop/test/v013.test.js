@@ -27,8 +27,8 @@ const packJs = read(path.join(DESKTOP, "scripts", "pack.js"));
 
 /* ---------- Part 1: rename ---------- */
 
-test("package.json: Shift Shift 0.1.16, new appId, GitHub publish config", () => {
-  assert.equal(pkg.version, "0.1.16");
+test("package.json: Shift Shift 0.1.17, new appId, GitHub publish config", () => {
+  assert.equal(pkg.version, "0.1.17");
   assert.equal(pkg.build.productName, "Shift Shift");
   assert.equal(pkg.build.appId, "com.firedarts.shiftshift");
   assert.equal(pkg.name, "shift-shift-desktop");
@@ -39,10 +39,10 @@ test("package.json: Shift Shift 0.1.16, new appId, GitHub publish config", () =>
   assert.equal(pkg.build.nsis.differentialPackage, true);
 });
 
-test("installer.nsi: Shift Shift names, 0.1.16, old Sideshow install removed, updater cache seeded", () => {
+test("installer.nsi: Shift Shift names, 0.1.17, old Sideshow install removed, updater cache seeded", () => {
   assert.ok(nsi.includes('Name "Shift Shift"'), "NSIS Name");
-  assert.ok(nsi.includes('OutFile "dist/Shift Shift Setup 0.1.16.exe"'), "NSIS OutFile");
-  assert.ok(nsi.includes('"DisplayVersion" "0.1.16"'), "NSIS DisplayVersion");
+  assert.ok(nsi.includes('OutFile "dist/Shift Shift Setup 0.1.17.exe"'), "NSIS OutFile");
+  assert.ok(nsi.includes('"DisplayVersion" "0.1.17"'), "NSIS DisplayVersion");
   assert.ok(nsi.includes("$LOCALAPPDATA\\Programs\\Shift Shift"), "install dir");
   assert.ok(nsi.includes('RMDir /r "$LOCALAPPDATA\\Programs\\Sideshow"'), "old install removed on upgrade");
   assert.ok(!nsi.includes('Name "Sideshow"'), "no old app name left");
@@ -60,7 +60,7 @@ test("user-visible strings say Shift Shift (tray, settings title, OAuth page)", 
   assert.ok(mainJs.includes("<p>Return to Shift Shift.</p>"), "OAuth success page");
   assert.ok(indexHtml.includes("<title>Shift Shift</title>"), "bubble title");
   assert.ok(settingsHtml.includes("<title>Shift Shift Settings</title>"), "settings title");
-  assert.ok(helpHtml.includes("Shift Shift v0.1.16"), "help page version");
+  assert.ok(helpHtml.includes("Shift Shift v0.1.17"), "help page version");
   assert.ok(!helpHtml.includes("Sideshow v0.1.12"), "no stale version in help");
 });
 
