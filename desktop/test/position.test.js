@@ -166,19 +166,3 @@ test("resolvePanelPosition honors the width setting at the corners", () => {
   assert.equal(center.x, Math.round((1440 - 320) / 2));
 });
 
-test("clampDragPosition keeps a drag target fully on-screen", () => {
-  /* The drag bug: an unclamped drag-move let the window slide past
-     the work-area edge, so the visible panel shrank instead of
-     moving — it looked like the view was scaling. */
-  const bounds = { x: 0, y: 0, width: 1024, height: 800 };
-  /* Past the right edge: clamped back so the whole panel shows. */
-  assert.deepEqual(pos.clampDragPosition(800, 100, bounds, 200, 400), { x: 624, y: 100 });
-  /* Past the bottom edge: clamped up. */
-  assert.deepEqual(pos.clampDragPosition(100, 700, bounds, 200, 400), { x: 100, y: 600 });
-  /* Past the left/top edges: clamped to the origin. */
-  assert.deepEqual(pos.clampDragPosition(-50, -20, bounds, 200, 400), { x: 0, y: 0 });
-  /* Inside: untouched. */
-  assert.deepEqual(pos.clampDragPosition(100, 100, bounds, 200, 400), { x: 100, y: 100 });
-  /* A narrower panel has a wider range. */
-  assert.deepEqual(pos.clampDragPosition(800, 100, bounds, 200, 320), { x: 704, y: 100 });
-});

@@ -20,10 +20,10 @@ const rendererJs = read(path.join(RENDERER, "renderer.js"));
 const settingsHtml = read(path.join(RENDERER, "settings.html"));
 const helpHtml = read(path.join(REPO, "docs", "index.html"));
 
-const HELP_URL = "https://kmberry1989.github.io/sideshow/";
+const HELP_URL = "https://kmberry1989.github.io/shiftshift/"; /* repo renamed Nov 19, 2026 */
 
-test("help page exists and covers Shift Shift v0.1.15", () => {
-  assert.ok(helpHtml.includes("Shift Shift v0.1.15"), "help page must name the version it documents");
+test("help page exists and covers Shift Shift v0.1.16", () => {
+  assert.ok(helpHtml.includes("Shift Shift v0.1.16"), "help page must name the version it documents");
   for (const section of ["Summoning", "Calendar view", "Settings window", "Google Calendar", "Signing in", "Installing"]) {
     assert.ok(helpHtml.includes(section), "help page must cover: " + section);
   }
@@ -31,7 +31,7 @@ test("help page exists and covers Shift Shift v0.1.15", () => {
 });
 
 test("help page documents the v0.1.10-era features", () => {
-  for (const feature of ["Touch", "Drag anywhere on the bubble", "Studio", "Dark", "Light", "White"]) {
+  for (const feature of ["Touch", "dragging is disabled", "Studio", "Dark", "Light", "White"]) { /* drag removed in v0.1.16 */
     assert.ok(helpHtml.includes(feature), "help page must document: " + feature);
   }
   assert.ok(helpHtml.includes("solid backdrop behind the grid"), "help page must cover the calendar backdrop");
@@ -76,7 +76,7 @@ test("help page documents the v0.1.12 features", () => {
 
 test("help page documents the v0.1.15 features", () => {
   for (const feature of [
-    "Click-through", /* clicks pass through transparent regions; off mid-drag */
+    "Click-through", /* clicks pass through transparent regions; dragging is disabled in v0.1.16 */
     "End date and time", /* extension auto-reveals optional form sections */
     "In person or Virtual", /* extension picks in-person/virtual to match the event */
     "Time zone", /* timezone fields get the event's timezone, never a time */

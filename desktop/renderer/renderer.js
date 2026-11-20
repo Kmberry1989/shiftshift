@@ -13,7 +13,6 @@ import { getFirestore, collection, query, orderBy, limit, onSnapshot, doc, updat
 import { eventTitle, eventWhen, eventMatches, fieldValueForKey, MONTHS, fmtDateShort, fmtDateLong, timeRange, COPY_ALL_FORMAT_LABELS, copyAllText } from "./fields.js";
 import { calendarEventToRecord, mergeEvents, monthGrid, groupEventsByDate, weekDates, shiftDateStr } from "./calendar.js";
 import { nextUpcomingEvent, formatCountdown, isAllDay } from "./nextup.js";
-import { classifyDragTarget, isDragMovement, shouldEngageDrag } from "./drag.js";
 import { CLICKABLE_SELECTOR, isOverInteractive } from "./click-through.js";
 import { THEMES as THEME_PRESETS, themeTextColors } from "../theme-icons.js";
 import { accentTextFor, accentInkFor, accentOnSurfacesFor } from "../contrast.js";
@@ -128,7 +127,7 @@ let weekViewDate = new Date(now0.getFullYear(), now0.getMonth(), now0.getDate())
    counts as idle. When the panel has been idle for the set time it
    fades out and hides through the normal hide path. Never fires
    while the settings window is open (the bubble is the live preview
-   then) or during a drag. 0 = stay until closed (default). */
+   then). 0 = stay until closed (default). */
 let panelVisible = false;
 let settingsWindowOpen = false;
 let idleTimer = null;
@@ -248,8 +247,8 @@ function playTickSound() { playStyled("tick"); }
 /* Hover tooltips are the browser's native title tooltip: a few
    words naming what the element does ("Settings", "Copy name",
    "Hide event"). Native titles are hover-only (never on touch),
-   never show while the pointer button is held (never during a
-   drag), and have no element of their own — nothing to interfere
+   never show while the pointer button is held, and have no
+   element of their own — nothing to interfere
    with the panel's click-through logic or elementFromPoint.
    Static elements carry their text in data-tip (see index.html /
    settings.html); dynamic elements use setTitle at creation.
@@ -284,7 +283,7 @@ function applyTooltips() {
    sitting still over the panel counts as idle. When the panel has
    been idle for the set time it fades out gradually through the
    normal hide path (hidePanel's fade), never an instant hide.
-   Never fires while the settings window is open or during a drag. */
+   Never fires while the settings window is open. */
 function clearIdleTimer() {
   if (idleTimer) { clearTimeout(idleTimer); idleTimer = null; }
 }
@@ -292,7 +291,6 @@ function resetIdleTimer() {
   clearIdleTimer();
   if (IS_SETTINGS_WINDOW) return;
   if (!panelVisible || settingsWindowOpen) return;
-  if (dragState) return; /* a drag restarts the clock when it ends */
   const ms = idleDismissMs();
   if (!ms) return; /* 0 = stay until closed */
   idleTimer = setTimeout(() => {
@@ -1327,25 +1325,23 @@ async function saveEventEdit(ev, form, saveBtn) {
 }
 
 function render() {
-  /* A drag freezes the panel: a re-render mid-drag rebuilds the
-     tree under the pointer (destroying the element being dragged
-     from) and reports a new content height, resizing the window
-     while it moves. Defer, don't drop — the drag end flushes it
-     once, so live data is never lost. */
-  if (dragState) { renderDeferred = true; return; }
   const tree = $("bubbleTree");
   if (!tree) return;
   if (focusedEvent && !visibleEvents().some((e) => e._id === focusedEvent._id)) focusedEvent = null;
   tree.innerHTML = "";
 
-  /* Root bubble — the Event Bank. Click it (no drag) to toggle the
-     focused event open/closed; drag from anywhere on the panel
-     (including this bubble) to move it. */
+  /* Root bubble — the Event Bank. Click it to toggle the focused
+     event open/closed. (Dragging is disabled: the panel does not
+     move. Positioning is via Settings → Position only.) */
   const root = document.createElement("button");
   root.type = "button";
   root.className = "bubble root-bubble pulse-item";
   root.style.animationDelay = "0s";
   root.innerHTML = '<span class="root-text">Event Bank</span>';
+  root.addEventListener("click", () => {
+    if (focusedEvent) { focusedEvent = null; render(); }
+    else if (events.length) { focusedEvent = events[0]; playTickSound(); render(); }
+  });
   tree.appendChild(root);
 
   const connector = document.createElement("div");
@@ -1615,149 +1611,8 @@ function reportContentHeight() {
   /* The settings window is a normal resizable window; it never
      reports a height — only the bubble's height fits the panel. */
   if (IS_SETTINGS_WINDOW) return;
-  /* A drag freezes the panel's size: a height report mid-drag
-     would resize (and possibly reposition) the window while it
-     moves. Defer it; the drag end flushes it once. */
-  if (dragState) { heightDeferred = true; return; }
   try { window.sideshow.reportContentHeight(measureContentHeight()); } catch (e) { /* main keeps its height */ }
 }
-
-/* ---------- drag from anywhere on the panel ---------- */
-
-/* A pointerdown anywhere on the panel starts a potential drag — root,
-   event/value bubbles, header buttons, calendar cells — using the
-   same 4px threshold and the same dragStart/dragMove/dragEnd IPC
-   path, so "Remember spot" keeps working. One path for mouse, touch,
-   and pen (Pointer Events); no separate touch handlers. Text inputs
-   are excluded so the header search box stays clickable and typeable;
-   the settings window is a normal window and never drags this way.
-   A drag must not also fire the click under it (copy, expand,
-   hide, open), so the click that follows a drag is swallowed; the
-   flag clears on the next pointerdown, which can only come after
-   that click would already have fired. A tap (pointerup without
-   movement) is a click: element handlers fire as normal.
-   pointercancel (the browser takes over for a scroll) aborts the
-   drag without the root toggle — a swipe that scrolls must not also
-   open or close an event. Only the pointer that started the drag
-   can move or end it, so a second finger never interferes. */
-let dragState = null;
-let suppressClickAfterDrag = false;
-/* Renders and height reports asked for while a drag is active are
-   deferred, not dropped — endPanelDrag flushes them once. */
-let renderDeferred = false;
-let heightDeferred = false;
-document.addEventListener("pointerdown", (e) => {
-  suppressClickAfterDrag = false;
-  if (IS_SETTINGS_WINDOW) return;
-  if (e.button !== 0) return;
-  const info = classifyDragTarget(e.target);
-  if (!info.start) return;
-  dragState = { pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, dx: 0, dy: 0, moved: false, raf: null, fromRoot: info.fromRoot, inScrollArea: info.inScrollArea, captured: false };
-  window.sideshow.dragStart();
-  /* Pointer capture keeps the stream alive while the window moves
-     under the cursor on Windows: without it the OS re-hit-tests
-     after every setPosition, the pointer can leave the window
-     between frames, and the stream breaks — a move reporting
-     buttons=0 then ends the drag early while the button is still
-     held, dropping is-dragging and letting the hover scale back in
-     while the user is still dragging. With capture, moves keep
-     arriving with the true button state even off-window, so a
-     buttons=0 move means the button really was released. */
-  try { e.target.setPointerCapture(e.pointerId); dragState.captured = true; } catch (err) { /* capture unsupported */ }
-  /* A drag is activity, but the idle clock must not fire mid-drag:
-     resetIdleTimer() refuses to re-arm while dragging, so a timer
-     armed before the drag could still hide the panel under it. */
-  clearIdleTimer();
-  /* While a drag is active, hover magnification is off (the
-     is-dragging class): the view must move, never grow, while the
-     pointer crosses bubbles. */
-  const bv = $("bubbleView");
-  if (bv) bv.classList.add("is-dragging");
-  /* The root bubble keeps its old behavior (no focus steal); other
-     elements keep theirs (a value still focuses on click). */
-  if (info.fromRoot) e.preventDefault();
-});
-document.addEventListener("click", (e) => {
-  if (!suppressClickAfterDrag) return;
-  suppressClickAfterDrag = false;
-  e.stopPropagation();
-  e.preventDefault();
-}, true);
-function endPanelDrag(allowToggle) {
-  if (!dragState) return;
-  const wasDrag = dragState.moved;
-  const fromRoot = dragState.fromRoot;
-  if (dragState.raf) cancelAnimationFrame(dragState.raf);
-  dragState = null;
-  const bv = $("bubbleView");
-  if (bv) bv.classList.remove("is-dragging");
-  window.sideshow.dragEnd(wasDrag);
-  /* Flush anything the drag deferred: live data that arrived
-     mid-drag renders now, and the content height is re-reported
-     once — never while the panel was moving. */
-  if (renderDeferred) { renderDeferred = false; render(); }
-  else if (heightDeferred) { heightDeferred = false; reportContentHeight(); }
-  if (wasDrag) {
-    suppressClickAfterDrag = true;
-    /* The drag-end click (same gesture) arrives within a frame or
-       two and must be swallowed, so it cannot toggle the root
-       bubble or copy a value. But a window-moving drag does not
-       reliably deliver that click at all — the window moves under
-       the cursor — so without a deadline the flag would stay armed
-       and eat the user's NEXT real click (a value copy, the Create
-       button). The next pointerdown clears it too: a real click is
-       always preceded by one, the drag-end click is not. */
-    setTimeout(() => { suppressClickAfterDrag = false; }, 500);
-  }
-  /* Click without a drag on the root bubble toggles the focused
-     event open/closed. Only the root does this — clicks elsewhere
-     already have their own handlers. A cancelled gesture (scroll
-     takeover) never toggles. */
-  else if (allowToggle && fromRoot) {
-    if (focusedEvent) { focusedEvent = null; render(); }
-    else if (events.length) { focusedEvent = events[0]; playTickSound(); render(); }
-  }
-  resetIdleTimer(); /* the drag's last movement restarts the idle clock */
-}
-document.addEventListener("pointermove", (e) => {
-  if (!dragState || e.pointerId !== dragState.pointerId) return;
-  /* Button released outside the window: with no pointer capture,
-     no pointerup arrives, so end the drag here instead of moving
-     the panel on plain hover. With capture, pointerup always
-     arrives (capture retargets it even off-window), so a buttons=0
-     move is not trusted as a release — it is the exact tripwire
-     that used to end the drag early on Windows while the button
-     was still held. */
-  if (!dragState.captured && !(e.buttons & 1)) { endPanelDrag(true); return; }
-  dragState.dx = e.clientX - dragState.startX;
-  dragState.dy = e.clientY - dragState.startY;
-  /* A touch swipe that starts in the tree or calendar and runs
-     vertical is a scroll, not a window drag — the browser cancels
-     the pointer stream for it, but the window must not nudge in
-     the meantime. Horizontal touch drags there still move it. */
-  if (isDragMovement(dragState.dx, dragState.dy) && shouldEngageDrag(e.pointerType, dragState.inScrollArea, dragState.dx, dragState.dy)) dragState.moved = true;
-  if (dragState.moved && !dragState.raf) {
-    dragState.raf = requestAnimationFrame(() => {
-      dragState.raf = null;
-      if (dragState) window.sideshow.dragMove(dragState.dx, dragState.dy);
-    });
-  }
-});
-document.addEventListener("pointerup", (e) => {
-  if (!dragState || e.pointerId !== dragState.pointerId) return;
-  endPanelDrag(true);
-});
-document.addEventListener("pointercancel", (e) => {
-  if (!dragState || e.pointerId !== dragState.pointerId) return;
-  endPanelDrag(false);
-});
-document.addEventListener("lostpointercapture", (e) => {
-  /* Capture lost mid-gesture (the OS took the stream): the drag is
-     over even though no pointerup arrived. End it cleanly, without
-     the root toggle — a lost stream is not a tap. */
-  if (!dragState || e.pointerId !== dragState.pointerId) return;
-  endPanelDrag(false);
-});
 
 /* ---------- transparent window: click-through ---------- */
 
@@ -1772,17 +1627,6 @@ function updateIgnoreMouse(x, y) {
   /* The settings window is a normal window; the panel's
      click-through state is the bubble's business only. */
   if (IS_SETTINGS_WINDOW) return;
-  /* While a drag is active the window must stay interactive. The
-     mousemove listener re-evaluates click-through on every move,
-     and as the panel slides under the pointer the pointer can land
-     on a gap between bubbles — flipping the window to click-through
-     mid-gesture breaks the pointer stream on Windows (a
-     pointercancel, or a move reporting buttons=0), which ends the
-     drag early, drops is-dragging, and lets the hover scale back
-     in while the user is still dragging. The drag started on a
-     bubble, so the state is already interactive; it stays that way
-     until pointerup. */
-  if (dragState) return;
   const el = document.elementFromPoint(x, y);
   const overInteractive = isOverInteractive(el);
   const ignore = !overInteractive;
@@ -2602,8 +2446,9 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   /* Position — tap to cycle where the bubble opens. "Remember spot"
-     opens where the bubble was last dragged to (drag it in the bubble
-     view); with no spot saved yet it follows the cursor. */
+     opens at the saved spot, if one was saved; with no spot saved
+     yet it follows the cursor. Dragging is disabled, so no new spot
+     can be set — the saved spot can only be reused or cleared. */
   const positionBtn = $("positionBtn");
   if (positionBtn) positionBtn.addEventListener("click", async () => {
     const next = POSITION_MODES[(POSITION_MODES.indexOf(positionSetting.mode) + 1) % POSITION_MODES.length];
@@ -2646,7 +2491,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     cursorGapSlider.addEventListener("change", async () => { await refreshSettingsUI(); });
   }
-  /* Reset remembered spot — clears the saved drag spot, so the next
+  /* Reset remembered spot — clears the saved spot, so the next
      open reverts to the default placement. */
   const resetSpotBtn = $("resetSpotBtn");
   if (resetSpotBtn) resetSpotBtn.addEventListener("click", async () => {

@@ -1,7 +1,9 @@
 "use strict";
-/* v0.1.10 static checks (no Electron needed): drag from anywhere
-   on the panel, calendar view backdrop from the existing background
-   settings, White in the color swatches, and one-tap preset themes.
+/* v0.1.10 static checks (no Electron needed): calendar view
+   backdrop from the existing background settings, White in the
+   color swatches, and one-tap preset themes. Dragging was removed
+   in v0.1.16 (see test/no-drag.test.js for the removal assertions);
+   the drag tests that used to live here are gone with it.
    Each test names the user-facing behavior it guards so a future
    edit that silently drops one fails loudly here first. */
 const test = require("node:test");
@@ -15,7 +17,6 @@ const read = (p) => fs.readFileSync(p, "utf8");
 const settingsHtml = read(path.join(RENDERER, "settings.html"));
 const stylesCss = read(path.join(RENDERER, "styles.css"));
 const rendererJs = read(path.join(RENDERER, "renderer.js"));
-const dragJs = read(path.join(RENDERER, "drag.js"));
 const mainJs = read(path.join(DESKTOP, "main.js"));
 /* Body of the first CSS rule whose selector starts a line as `sel`, or null.
    (Line-anchored: a combined selector line like ".x, .settings-body {"
@@ -25,21 +26,17 @@ const ruleBody = (css, sel) => {
   return m ? m[1] : null;
 };
 
-test("drag from anywhere: a document pointerdown starts the drag, not the root alone", () => {
+test("dragging is disabled: the root's click toggles the focused event, nothing moves the panel", () => {
+  /* v0.1.16: dragging is gone entirely (Kyle's call — the scale
+     issue persisted through two fixes). The toggle that used to
+     live in the drag-end path is a plain click listener on the
+     root bubble; see test/no-drag.test.js for the full removal
+     assertions. */
   assert.ok(!rendererJs.includes("onRootMouseDown"), "the root-only drag handler must be gone");
   assert.ok(!rendererJs.includes('root.addEventListener("mousedown"'), "the root must not carry its own drag listener");
-  assert.ok(rendererJs.includes('from "./drag.js"'), "renderer must import the drag helper");
-  assert.ok(rendererJs.includes("classifyDragTarget(e.target)"), "the document pointerdown must classify its target");
-  assert.ok(rendererJs.includes("fromRoot: info.fromRoot"), "the drag must remember whether it started on the root");
-  assert.ok(rendererJs.includes("if (IS_SETTINGS_WINDOW) return;"), "the settings window must never start a panel drag");
-});
-
-test("drag from anywhere: only the root's click toggles the focused event", () => {
-  assert.ok(rendererJs.includes("else if (allowToggle && fromRoot)"), "the no-drag toggle must be gated on the root origin and on a real pointerup");
-  assert.ok(dragJs.includes("DRAG_EXCLUDE_SELECTOR"), "the input exclusion must live in the drag module");
-  assert.ok(rendererJs.includes("suppressClickAfterDrag"), "a drag must not also fire the click under it");
-  assert.ok(rendererJs.includes('document.addEventListener("click"'), "the click suppressor must exist");
-  assert.ok(rendererJs.includes("e.stopPropagation()"), "the suppressor must stop the post-drag click");
+  const rootStart = rendererJs.indexOf('root.className = "bubble root-bubble pulse-item"');
+  const rootBlock = rendererJs.slice(rootStart, rendererJs.indexOf("tree.appendChild(root);", rootStart));
+  assert.ok(rootBlock.includes('root.addEventListener("click"'), "the root bubble must toggle on a plain click");
 });
 
 test("click-through: only leaf interactive elements keep clicks, transparent gaps pass through", () => {
@@ -104,30 +101,17 @@ test("preset themes: Studio, Dark, Light set the existing settings in one tap", 
 
 /* ---------- touch: Pointer Events, one path ---------- */
 
-test("drag is Pointer Events only: no mouse-only drag listeners remain", () => {
+test("no drag listeners remain: no pointermove/pointerup/pointercancel drag path", () => {
+  /* v0.1.16: the drag listeners are gone. The only pointerdown
+     listener left is the Create event menu's outside-click close;
+     it must not start a move. */
+  assert.ok(!rendererJs.includes('addEventListener("pointermove"'), "no pointermove drag listener");
+  assert.ok(!rendererJs.includes('addEventListener("pointerup"'), "no pointerup drag listener");
+  assert.ok(!rendererJs.includes('addEventListener("pointercancel"'), "no pointercancel drag listener");
+  assert.ok(!rendererJs.includes('addEventListener("lostpointercapture"'), "no lost-capture drag listener");
   assert.ok(!rendererJs.includes('addEventListener("mousedown"'), "no mousedown drag listener");
   assert.ok(!rendererJs.includes('addEventListener("mouseup"'), "no mouseup drag listener");
-  assert.ok(!rendererJs.includes("touchstart") && !rendererJs.includes("touchend") && !rendererJs.includes("touchmove"), "no separate touch handlers");
-  for (const ev of ["pointerdown", "pointermove", "pointerup", "pointercancel"]) {
-    assert.ok(rendererJs.includes(`addEventListener("${ev}"`), `pointer ${ev} listener present`);
-  }
-});
-
-test("drag tracks the starting pointer and ignores other pointers", () => {
-  assert.ok(rendererJs.includes("pointerId: e.pointerId"), "dragState stores the starting pointerId");
-  assert.ok(rendererJs.includes("e.pointerId !== dragState.pointerId"), "move/up/cancel ignore other pointers");
-});
-
-test("pointercancel aborts the drag without the root toggle", () => {
-  assert.ok(rendererJs.includes('addEventListener("pointercancel"'), "pointercancel listener present");
-  assert.ok(rendererJs.includes("endPanelDrag(false)"), "cancel ends the drag with no toggle");
-  assert.ok(rendererJs.includes("endPanelDrag(true)"), "pointerup still ends the drag with the toggle");
-});
-
-test("touch drags from a scroll area only engage when horizontal", () => {
-  assert.ok(dragJs.includes("shouldEngageDrag"), "the gate must live in the drag module");
-  assert.ok(rendererJs.includes("shouldEngageDrag(e.pointerType, dragState.inScrollArea"), "the pointermove handler must apply the gate");
-  assert.ok(rendererJs.includes("inScrollArea: info.inScrollArea"), "the drag must remember whether it started in a scroll area");
+  assert.ok(rendererJs.includes('e.target.closest("#createEventMenu")'), "the one pointerdown listener left must be the Create menu close");
 });
 
 test("touch-action: manipulation on interactive elements, pan-y on scroll containers, none on the header", () => {
@@ -137,7 +121,7 @@ test("touch-action: manipulation on interactive elements, pan-y on scroll contai
     assert.ok(rule && /touch-action:\s*pan-y/.test(rule), `${sel} scrolls natively (pan-y)`);
   }
   const header = ruleBody(stylesCss, ".bubble-header");
-  assert.ok(header && /touch-action:\s*none/.test(header), "header never scrolls, so a drag from it always moves the window");
+  assert.ok(header && /touch-action:\s*none/.test(header), "header never scrolls");
   assert.ok(stylesCss.includes("-webkit-touch-callout: none"), "no long-press callout");
 });
 

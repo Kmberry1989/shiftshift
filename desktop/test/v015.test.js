@@ -1,8 +1,9 @@
 "use strict";
 /* v0.1.15 static checks (no Electron needed): version bump, the
-   drag freeze + pointer capture (see drag.test.js for the behavior
-   assertions), the click-through leaf selector (see
-   click-through.test.js), and the Create event shortcut button. */
+   click-through leaf selector (see click-through.test.js), and the
+   Create event shortcut button. The drag freeze + pointer capture
+   this file used to cover was removed with dragging itself in
+   v0.1.16 (see no-drag.test.js). */
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
@@ -26,11 +27,11 @@ const FACEBOOK_CREATE_URL = "https://www.facebook.com/events/create";
    Navigation contract. */
 const WIX_NEW_EVENT_URL = "https://manage.wix.com/dashboard/cf57070b-8114-45e4-95b1-7242bf48c467/events/new";
 
-test("package.json, installer.nsi, and docs all say 0.1.15", () => {
-  assert.equal(pkg.version, "0.1.15");
-  assert.ok(nsi.includes('OutFile "dist/Shift Shift Setup 0.1.15.exe"'), "installer OutFile must be 0.1.15");
-  assert.ok(nsi.includes('"DisplayVersion" "0.1.15"'), "installer DisplayVersion must be 0.1.15");
-  assert.ok(helpHtml.includes("Shift Shift v0.1.15"), "the help page must say v0.1.15");
+test("package.json, installer.nsi, and docs all say 0.1.16", () => {
+  assert.equal(pkg.version, "0.1.16");
+  assert.ok(nsi.includes('OutFile "dist/Shift Shift Setup 0.1.16.exe"'), "installer OutFile must be 0.1.16");
+  assert.ok(nsi.includes('"DisplayVersion" "0.1.16"'), "installer DisplayVersion must be 0.1.16");
+  assert.ok(helpHtml.includes("Shift Shift v0.1.16"), "the help page must say v0.1.16");
 });
 
 test("Create event: the header has the button and a two-choice menu", () => {

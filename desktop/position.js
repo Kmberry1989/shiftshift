@@ -24,8 +24,8 @@ const PANEL_MIN_H = 140;
 const PANEL_MAX_H = 560;
 const CURSOR_GAP = 16;
 /* Panel width setting: 320–560px, default 400 (the current width).
-   The window, the positioning/clamping, and the drag clamp all use
-   the chosen width; the tree and the calendar grid are fluid, so
+   The window, the positioning/clamping, and the position clamp all
+   use the chosen width; the tree and the calendar grid are fluid, so
    they fit any width in the range with no horizontal overflow. */
 const PANEL_W_MIN = 320;
 const PANEL_W_MAX = 560;
@@ -44,8 +44,8 @@ const DISMISS_OPTIONS = [0, 5, 10, 30, 60];
 const DISMISS_LABELS = { 0: "Stay until closed", 5: "5 seconds", 10: "10 seconds", 30: "30 seconds", 60: "1 minute" };
 
 /* Position modes. "cursor" follows the pointer; the four corners and
-   "center" are fixed spots; "custom" is a spot the user dragged the
-   bubble to ("Remember spot"). Fixed spots anchor to the cursor's
+   "center" are fixed spots; "custom" is a spot saved before dragging
+   was disabled ("Remember spot"). Fixed spots anchor to the cursor's
    display work area, so the panel appears on the monitor being used. */
 const POSITION_MODES = ["cursor", "top-left", "top-right", "bottom-left", "bottom-right", "center", "custom"];
 const POSITION_LABELS = {
@@ -77,16 +77,6 @@ function clampPosition(x, y, bounds, w, h) {
     x: Math.round(maxX < bounds.x ? bounds.x : Math.max(bounds.x, Math.min(x, maxX))),
     y: Math.round(maxY < bounds.y ? bounds.y : Math.max(bounds.y, Math.min(y, maxY))),
   };
-}
-
-/* Clamp a drag target the same way: a drag must never push the panel
-   partly off-screen. An unclamped drag-move lets the window slide
-   past the work-area edge, so the visible panel shrinks instead of
-   moving — it looks like the view is scaling. The drag-end save
-   already clamped, but it never moved the window to the clamped
-   spot, so the saved spot and the real position drifted apart. */
-function clampDragPosition(x, y, bounds, h, w) {
-  return clampPosition(x, y, bounds, w || PANEL_W, h);
 }
 
 /* Follow-cursor: just below-right of the pointer by a small gap so it
@@ -170,6 +160,6 @@ module.exports = {
   PANEL_W_MIN, PANEL_W_MAX, CURSOR_GAP_MIN, CURSOR_GAP_MAX,
   PANEL_DISPLAYS, PANEL_DISPLAY_LABELS, DISMISS_OPTIONS, DISMISS_LABELS,
   POSITION_MODES, POSITION_LABELS,
-  clampHeight, clampPosition, clampDragPosition, panelPositionNearCursor,
+  clampHeight, clampPosition, panelPositionNearCursor,
   resolvePanelPosition, normalizePositionSetting,
 };

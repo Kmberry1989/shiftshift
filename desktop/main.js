@@ -25,7 +25,7 @@ const { autoUpdater } = require("electron-updater");
 const DEFAULT_HOTKEY = "CommandOrControl+Shift+E";
 const OAUTH_PORT = 53682;
 /* Help page: GitHub Pages serving docs/ from main. */
-const HELP_URL = "https://kmberry1989.github.io/sideshow/";
+const HELP_URL = "https://kmberry1989.github.io/shiftshift/";
 const TOKEN_FILE = "sideshow-token.json";
 const SETTINGS_FILE = "sideshow-settings.json";
 
@@ -269,8 +269,8 @@ async function revokeRefreshToken() {
    sideshow:ignore-mouse) so clicks outside the bubble reach the
    desktop. The bubble stays open until dismissed (x button or
    re-summon); it no longer hides on click-away (v0.1.6). The
-   bubble itself is the hit area and the drag handle (any spot on
-   the panel, via sideshow:drag-start / sideshow:drag-move). */
+   bubble itself is the hit area. Dragging is disabled (v0.1.16):
+   the panel does not move; positioning is via Settings → Position. */
 function createPanel() {
   panel = new BrowserWindow({
     width: panelWidth(),
@@ -425,7 +425,7 @@ function setPanelOpacity(v) {
 
 /* Where the panel opens: the Position setting (follow cursor, a
    fixed corner/center of the cursor's display, or a remembered
-   dragged spot). The window height is fitted to the bubble content
+   spot). The window height is fitted to the bubble content
    (the renderer reports it) instead of staying at the 560 max —
    that is the fix for the panel landing "way up": the old code
    flipped the whole 560px window above a low cursor, so the bubble
@@ -437,8 +437,8 @@ function positionSetting() {
 }
 
 /* The panel width from the Position setting (320–560, default 400).
-   The window, the positioning/clamping, and the drag clamp all use
-   this width; the renderer layout is fluid, so it follows the
+   The window, the positioning/clamping, and the position clamp
+   all use this width; the renderer layout is fluid, so it follows the
    window without a reload. */
 function panelWidth() {
   return positionSetting().width;
@@ -818,7 +818,7 @@ function upcomingCount(events) {
 }
 
 /* ---------- in-place updates (electron-updater) ----------
-   The app checks its GitHub releases (Kmberry1989/sideshow, see the
+   The app checks its GitHub releases (Kmberry1989/shiftshift, see the
    "publish" block in package.json) for a newer version and installs
    it in place — no uninstall, no clean install. Settings, sign-in,
    reminders, and the cached events survive because they live in
@@ -1095,50 +1095,6 @@ ipcMain.handle("sideshow:ignore-mouse", (_e, ignore) => {
   return true;
 });
 
-/* Custom drag: any spot on the panel is the drag handle. The
-   renderer sends the window position at drag start, then deltas as
-   the pointer moves. A click without a move is a click, not a drag.
-   The move target is clamped to the work area: an unclamped move
-   lets the window slide partly off-screen, so the visible panel
-   shrinks instead of moving — it looks like the view is scaling.
-   The drag-end save already clamped, but it never moved the window
-   to the clamped spot, so the saved spot and the real position
-   drifted apart and the next drag started from the wrong place. */
-let dragStartPos = null;
-ipcMain.handle("sideshow:drag-start", () => {
-  dragStartPos = panel ? panel.getPosition() : null;
-  return true;
-});
-ipcMain.handle("sideshow:drag-move", (_e, dx, dy) => {
-  if (panel && dragStartPos) {
-    const tx = Math.round(dragStartPos[0] + (dx || 0));
-    const ty = Math.round(dragStartPos[1] + (dy || 0));
-    const display = screen.getDisplayNearestPoint({ x: tx, y: ty });
-    const c = position.clampDragPosition(tx, ty, display.workArea, panelHeight, panelWidth());
-    panel.setPosition(c.x, c.y);
-  }
-  return true;
-});
-ipcMain.handle("sideshow:drag-end", (_e, moved) => {
-  /* "Remember spot": a real drag (not a click) drops the bubble at a
-     spot the panel opens at next time. Only in custom mode, and only
-     when the drag actually moved — a click on the root bubble just
-     toggles the focused event and must not set the spot. The window
-     is moved to the clamped spot it saves, so the saved spot and
-     the real position always agree. */
-  if (moved && panel && positionSetting().mode === "custom") {
-    const pos = panel.getPosition();
-    const display = screen.getDisplayNearestPoint({ x: pos[0], y: pos[1] });
-    const c = position.clampPosition(pos[0], pos[1], display.workArea, panelWidth(), panelHeight);
-    if (c.x !== pos[0] || c.y !== pos[1]) panel.setPosition(c.x, c.y);
-    const p = positionSetting();
-    p.custom = { x: c.x, y: c.y };
-    settings.position = p;
-    saveSettings();
-  }
-  dragStartPos = null; return true;
-});
-
 ipcMain.handle("sideshow:config-status", () => configStatus());
 
 ipcMain.handle("sideshow:firebase-config", () => {
@@ -1298,8 +1254,8 @@ ipcMain.handle("sideshow:set-transparency", (_e, value) => {
 
 /* Panel position: where the bubble opens. "cursor" follows the
    pointer (default); the corners/center are fixed spots on the
-   cursor's display; "custom" is a spot the user dragged the bubble
-   to. The setting also carries the panel width (320–560, default
+   cursor's display; "custom" is a spot saved before dragging was
+   disabled (v0.1.16) — no new spot can be set. The setting also carries the panel width (320–560, default
    400), which display it opens on (cursor's or primary), the gap
    from the cursor (0–64, default 16), and the idle auto-dismiss
    (0 = stay until closed, else seconds). Accepts a mode string

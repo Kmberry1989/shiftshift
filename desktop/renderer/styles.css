@@ -61,8 +61,8 @@ body {
   padding: 10px 12px 4px;
   flex: none;
   position: relative;
-  /* The header never scrolls, so a finger drag from here always
-     moves the window (no scroll takeover, no pointercancel). */
+  /* The header never scrolls, so a finger swipe here never
+     scrolls the panel. */
   touch-action: none;
 }
 .bubble-header button {
@@ -172,9 +172,7 @@ body {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  /* A vertical finger swipe scrolls this list natively; the drag
-     code aborts on the pointercancel that follows, so the swipe
-     scrolls instead of moving the window. */
+  /* A vertical finger swipe scrolls this list natively. */
   touch-action: pan-y;
   /* Mono is the current bubble type; the font option swaps it. */
   font-family: var(--bubble-font, ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace);
@@ -399,9 +397,7 @@ body {
      (the corners, curving inward, still showed). Inset, all four
      lines render inside the frame. */
   margin: 2px;
-  /* A vertical finger swipe scrolls the month natively; the drag
-     code aborts on the pointercancel that follows, so the swipe
-     scrolls instead of moving the window. */
+  /* A vertical finger swipe scrolls the month natively. */
   touch-action: pan-y;
   /* The grid has a backdrop like a bubble — the same fill the
      Appearance background color + theme + transparency slider
@@ -533,27 +529,6 @@ body {
 .motion-full .bubble-tree .value-bubble:hover { transform: scale(1.05); }
 .motion-full .bubble-tree:has(.event-branch:hover) .event-branch:not(:hover) .event-bubble { transform: scale(0.98); }
 .motion-full .bubble-tree .value-branch:has(.value-bubble:hover) .value-bubble:not(:hover) { transform: scale(0.98); }
-/* While a drag is active, no hover scale anywhere on the panel: the
-   view must move, never grow, while the pointer crosses elements.
-   The renderer adds is-dragging on pointerdown and removes it when
-   the drag ends. The guard covers every bubble — .bubble is the
-   class they all share (root, Next up, event, value, empty,
-   sign-in), not just event/value — and it freezes animations too:
-   a copy-pop already running when the drag starts would otherwise
-   keep growing its bubble to 1.07, and the inflate-on-open
-   animation would scale the whole view if the user grabs the panel
-   in its first 250 ms. The pulse lives on the branch, so it keeps
-   its own rule below. */
-#bubbleView.is-dragging .bubble-header button:hover,
-#bubbleView.is-dragging .bubble-tree .bubble { transform: none !important; animation: none !important; }
-/* The pulse lives on the branch, not the bubble, so the guard above
-   never reached it: the whole branch kept breathing (1 → 1.01)
-   while the panel was dragged. A drag freezes the pulse too. */
-#bubbleView.is-dragging #bubbleTree.pulse .pulse-item { animation: none !important; }
-/* Inflate runs when the panel opens; a drag that starts inside its
-   first 250 ms must not ride the view from .7 to full size. */
-#bubbleView.is-dragging.inflate { animation: none !important; }
-
 /* ---------- Per-field text styling ---------- */
 /* Applied by the renderer to a value bubble or the event title,
    from the Text tab outline. Bold wins over the global weight for

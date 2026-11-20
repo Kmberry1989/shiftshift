@@ -1,9 +1,11 @@
 "use strict";
 /* v0.1.11 batch: static checks for the pieces that need Electron to
-   run live (drag clamp in main, sound styles, tooltips, idle
-   auto-dismiss, calendar border inset). The live behavior is
-   verified headlessly in the smoke run; these tests pin the wiring
-   so it cannot silently drift. */
+   run live (sound styles, tooltips, idle auto-dismiss, calendar
+   border inset). Dragging was removed in v0.1.16 — the drag tests
+   that used to live here are gone with it (see test/no-drag.test.js
+   for the removal assertions). The live behavior is verified
+   headlessly in the smoke run; these tests pin the wiring so it
+   cannot silently drift. */
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
@@ -29,21 +31,19 @@ test("calendar border is inset inside the frame on all four sides", () => {
   assert.ok(block.includes("border: 1.5px solid"), "calendar view must keep its border");
 });
 
-test("drag-move clamps to the work area and drag-end moves the window to the saved spot", () => {
-  assert.ok(mainJs.includes('ipcMain.handle("sideshow:drag-move"'), "main must handle drag-move");
-  const move = mainJs.slice(mainJs.indexOf('ipcMain.handle("sideshow:drag-move"'));
-  assert.ok(move.includes("clampDragPosition"), "drag-move must clamp the target to the work area");
-  assert.ok(!move.slice(0, move.indexOf("});")).includes("panel.setPosition(Math.round(dragStartPos[0]"),
-    "drag-move must not set the raw unclamped position");
-  const end = mainJs.slice(mainJs.indexOf('ipcMain.handle("sideshow:drag-end"'));
-  assert.ok(end.includes("panel.setPosition(c.x, c.y)"), "drag-end must move the window to the clamped spot it saves");
-});
-
-test("no hover scale applies while a drag is active", () => {
-  assert.ok(rendererJs.includes('classList.add("is-dragging")'), "renderer must mark the drag");
-  assert.ok(rendererJs.includes('classList.remove("is-dragging")'), "renderer must clear the drag mark");
-  assert.ok(stylesCss.includes("#bubbleView.is-dragging"), "styles must suppress hover scale while dragging");
-  assert.ok(stylesCss.includes("transform: none !important"), "drag suppression must override the hover rules");
+test("dragging is disabled: no drag IPC in main, no drag state anywhere", () => {
+  /* v0.1.16: drag-to-move is gone entirely (Kyle's call — the scale
+     issue persisted through two fixes). The full removal assertions
+     live in test/no-drag.test.js; this test pins the two spots
+     this file used to cover (the main-process drag handlers and
+     the hover-scale guard). */
+  for (const ch of ["sideshow:drag-start", "sideshow:drag-move", "sideshow:drag-end"]) {
+    assert.ok(!mainJs.includes('ipcMain.handle("' + ch + '"'), "main must not handle " + ch);
+    assert.ok(!preloadJs.includes(ch), "preload must not expose " + ch);
+  }
+  assert.ok(!rendererJs.includes("is-dragging"), "renderer must not mark a drag");
+  assert.ok(!stylesCss.includes("is-dragging"), "styles must carry no drag rules");
+  assert.ok(!stylesCss.includes("#bubbleView.is-dragging"), "no drag-scoped hover suppression may remain");
 });
 
 test("sound styles: eight distinct sets, Bubbly default, sample on change", () => {
